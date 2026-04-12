@@ -1,4 +1,3 @@
-const axios = require('axios');
 const jwt = require('jsonwebtoken');
 const db = require('../config/db');
 const { verifyFirebaseToken } = require('../utils/firebaseService');
@@ -79,20 +78,20 @@ const firebaseLogin = async (req, res) => {
             console.log(`👤 [${requestId}] Existing user found: ID=${userId}`);
 
             // Actualizar Firebase UID si no lo tiene
-            if (!userData.user_google_id) {
-                console.log(`🔄 [${requestId}] Updating Firebase UID...`);
+if (!userData.user_google_id || !userData.profile_image) {
+                console.log(`🔄 [${requestId}] Updating Firebase UID & profile...`);
                 await db.query(
-                    'UPDATE users SET user_google_id = ? WHERE user_id = ?',
-                    [firebaseUid, userId]
+                    'UPDATE users SET user_google_id = ?, profile_image = ? WHERE user_id = ?',
+                    [firebaseUid, photoURL || decodedToken.picture || null, userId]
                 );
             }
         } else {
             // Usuario nuevo: crear
             console.log(`✨ [${requestId}] Creating new user:`, firebaseEmail);
-            const [result] = await db.query(
-                `INSERT INTO users (user_name, user_lastname, user_email, user_google_id)
-                 VALUES (?, ?, ?, ?)`,
-                [nombre || firebaseEmail.split('@')[0], apellido || '', firebaseEmail, firebaseUid]
+const [result] = await db.query(
+                `INSERT INTO users (user_name, user_lastname, user_email, user_google_id, profile_image)
+                 VALUES (?, ?, ?, ?, ?)`,
+                [nombre || firebaseEmail.split('@')[0], apellido || '', firebaseEmail, firebaseUid, photoURL || decodedToken.picture || null]
             );
             
             userId = result.insertId;
@@ -126,11 +125,12 @@ const firebaseLogin = async (req, res) => {
         );
 
         // 4. Devolver datos del usuario y token
-        let userPayload = {
+let userPayload = {
             id: userId,
             nombre: userData.user_name,
             apellido: userData.user_lastname,
             email: userData.user_email,
+            profile_image: userData.profile_image,
             telefono: userData.user_phonenumber || null,
             whatsapp: userData.whatsapp || null,
             rol: userData.rol_id || rolId,

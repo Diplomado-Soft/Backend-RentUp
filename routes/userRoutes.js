@@ -1,10 +1,11 @@
 // server/routes/userRoutes.js
 
 // Importación de módulos necesarios
-const express = require('express'); 
-const router = express.Router(); 
-const userController = require('../controllers/userController'); 
-const authMiddleware = require('../middlewares/authMiddleware'); 
+const express = require('express'); // Framework para manejar rutas y peticiones HTTP
+const router = express.Router(); // Router para agrupar y manejar rutas
+const userController = require('../controllers/userController'); // Controlador para manejar la lógica de los arrendadores
+const authController = require('../controllers/authController'); // Controlador para auth Google Firebase
+const authMiddleware = require('../middlewares/authMiddleware'); // Middleware para manejar autenticación
 
 /**
  * RUTAS PÚBLICAS
@@ -32,5 +33,8 @@ router.put('/update-whatsapp', authMiddleware, userController.updateWhatsApp);
 // Eliminar cuenta de usuario y sus roles asociados
 router.delete('/delete-account', authMiddleware, userController.deleteAccount);
 
-// Exportación del router para usarlo en la aplicación principal (app.js o server.js)
+// Ruta Google Firebase Auth
+router.post('/auth/firebase-login', authController.firebaseLogin);
+
+// Exportación del router para usarlo en la aplicación principal
 module.exports = router;
