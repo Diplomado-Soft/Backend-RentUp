@@ -1,46 +1,50 @@
 const User = require('../models/userModel');
 const bcrypt = require('bcryptjs');
 const { generateToken } = require('../utils/auth');
+const db = require('../config/db'); // Mover el import aquí arriba es mejor práctica
 require('dotenv').config();
 
 exports.getUserData = async (req, res) => {
-    const userId = req.user.id; // Usuario autenticado desde el token
+    // CORRECCIÓN 1: Asegurar que capturamos el ID correctamente según tu middleware
+    const userId = req.user.id || req.user.user_id; 
 
     try {
-        // Llamar al modelo para obtener datos del usuario
         const user = await User.getUserData(userId);
 
         if (!user) {
             return res.status(404).json({ error: "Usuario no encontrado" });
         }
 
-        // Excluir información sensible
         const { user_password, ...userData } = user;
-
         res.json(userData);
     } catch (error) {
         console.error("Error obteniendo datos del usuario:", error);
         res.status(500).json({ error: "Error en el servidor" });
     }
 }
+
 exports.updateUserData = async (req, res) => {
-    console.log(req.body);
     const { nombre, apellido, email, telefono, password, rol } = req.body;
-    const userId = req.user.id; // Usuario autenticado desde el token
+    const userId = req.user.id || req.user.user_id;
 
     try {
-        // Llamar al modelo para actualizar datos
+        // CORRECCIÓN 2: Si viene password, hay que hashearla antes de enviarla al modelo
+        let hashedEmojiPassword = password;
+        if (password) {
+            const salt = await bcrypt.genSalt(10);
+            hashedEmojiPassword = await bcrypt.hash(password, salt);
+        }
+
         const updatedUser = await User.updateUserData(userId, {
             nombre,
             apellido,
             email,
             telefono,
-            password: password !== undefined ? password: null, // Si no se proporciona, no se actualiza
+            password: hashedEmojiPassword !== undefined ? hashedEmojiPassword : null,
             rol
         });
 
         if (!updatedUser) {
-            console.error("Error al actualizar usuario:", error);
             return res.status(404).json({ error: "Usuario no encontrado o no se pudo actualizar" });
         }
 
@@ -54,12 +58,10 @@ exports.updateUserData = async (req, res) => {
     }
 };
 
-// Controlador para registrar un nuevo usuario
 exports.signup = async (req, res) => {
     try {
         const { nombre, apellido, email, telefono, password, rolId } = req.body;
         
-        // Validación de campos
         const requiredFields = ['nombre', 'apellido', 'email', 'telefono', 'password', 'rolId'];
         const missingFields = requiredFields.filter(field => !req.body[field]);
         
@@ -70,19 +72,16 @@ exports.signup = async (req, res) => {
             });
         }
 
-        // Validar formato de email
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(email)) {
             return res.status(400).json({ error: 'Formato de email inválido' });
         }
 
-        // Verificar si el usuario ya existe
         const existingUser = await User.findByEmail(email);
         if (existingUser) {
             return res.status(409).json({ error: 'El usuario ya está registrado' });
         }
         
-        // Crear usuario
         const newUser = await User.signup({
             nombre,
             apellido,
@@ -92,7 +91,6 @@ exports.signup = async (req, res) => {
             rolId
         });
 
-        // Generar token JWT
         const token = generateToken({
             id: newUser.user_id,
             rol: newUser.rol_id
@@ -114,7 +112,6 @@ exports.signup = async (req, res) => {
     }
 };
 
-// Controlador para iniciar sesión
 exports.login = async (req, res) => {
     try {
         const { email, password } = req.body;
@@ -123,42 +120,35 @@ exports.login = async (req, res) => {
             return res.status(400).json({ error: 'Email y contraseña requeridos' });
         }
 
-        // Buscar usuario
         const user = await User.findByEmail(email);
         if (!user) {
             return res.status(401).json({ error: 'Usuario no encontrado' });
         }
 
-        // Verificar si el usuario usa Google OAuth
         if (!user.user_password) {
             return res.status(400).json({ error: 'Este usuario usa Google OAuth, inicie sesión con Google' });
         }
 
-        // Verificar contraseña
         const validPassword = await bcrypt.compare(password, user.user_password);
         if (!validPassword) {
             return res.status(401).json({ error: 'Credenciales inválidas' });
         }
 
-        // Generar token JWT
         const token = generateToken({
             id: user.user_id,
             rol: user.rol_id
         });
 
-        // Excluir información sensible
-        const userData = {
-            id: user.user_id,
-            nombre: user.user_name,
-            apellido: user.user_lastname,
-            email: user.user_email,
-            telefono: user.user_phonenumber,
-            rol: user.rol_id
-        };
-
         res.json({
             message: 'Autenticación exitosa',
-            user: userData,
+            user: {
+                id: user.user_id,
+                nombre: user.user_name,
+                apellido: user.user_lastname,
+                email: user.user_email,
+                telefono: user.user_phonenumber,
+                rol: user.rol_id
+            },
             token
         });
     } catch (error) {
@@ -167,25 +157,17 @@ exports.login = async (req, res) => {
     }
 };
 
-/**
- * PUT /users/update-whatsapp - Actualizar número de WhatsApp y teléfono del usuario
- * Sprint 4 - T-20: Agregar campo WhatsApp a perfil
- */
 exports.updateWhatsApp = async (req, res) => {
     try {
         const userId = req.user?.id || req.user?.user_id;
         const { telefono, whatsapp } = req.body;
 
-        const db = require('../config/db');
-        
         let query = 'UPDATE users SET ';
         const params = [];
         const updates = [];
 
-        // Si se proporciona teléfono
         if (telefono !== undefined && telefono !== null) {
             const cleanPhone = telefono.replace(/\D/g, '');
-            // Formatear a formato colombiano si es necesario
             let formattedPhone = cleanPhone;
             if (cleanPhone.length === 10 && cleanPhone.startsWith('3')) {
                 formattedPhone = '57' + cleanPhone;
@@ -193,14 +175,12 @@ exports.updateWhatsApp = async (req, res) => {
             updates.push('user_phonenumber = ?');
             params.push(formattedPhone);
             
-            // Si no se proporciona WhatsApp pero sí teléfono, usar el mismo número
             if (!whatsapp) {
                 updates.push('whatsapp = ?');
                 params.push(formattedPhone);
             }
         }
 
-        // Si se proporciona WhatsApp
         if (whatsapp !== undefined && whatsapp !== null) {
             const cleanWhatsApp = whatsapp.replace(/\D/g, '');
             let formattedWhatsApp = cleanWhatsApp;
@@ -212,20 +192,17 @@ exports.updateWhatsApp = async (req, res) => {
         }
 
         if (updates.length === 0) {
-            return res.status(400).json({
-                error: 'Debe proporcionar al menos un número de teléfono o WhatsApp'
-            });
+            return res.status(400).json({ error: 'Debe proporcionar al menos un número' });
         }
 
         query += updates.join(', ') + ' WHERE user_id = ?';
         params.push(userId);
 
-        const [result] = await db.execute(query, params);
+        // CORRECCIÓN 3: Usar la conexión global de db importada arriba
+        const [result] = await db.query(query, params); 
 
         if (result.affectedRows === 0) {
-            return res.status(404).json({
-                error: 'Usuario no encontrado'
-            });
+            return res.status(404).json({ error: 'Usuario no encontrado' });
         }
 
         res.json({
@@ -235,18 +212,12 @@ exports.updateWhatsApp = async (req, res) => {
             whatsapp: whatsapp || telefono || null
         });
     } catch (error) {
-        console.error('Error actualizando datos de contacto:', error);
-        res.status(500).json({
-            error: error.message || 'Error al actualizar datos de contacto'
-        });
+        console.error('Error actualizando WhatsApp:', error);
+        res.status(500).json({ error: 'Error al actualizar datos de contacto' });
     }
 };
 
-/**
- * DELETE /users/delete-account - Eliminar cuenta de usuario
- */
 exports.deleteAccount = async (req, res) => {
-    const db = require('../config/db');
     const connection = await db.getConnection();
     try {
         const userId = req.user?.id || req.user?.user_id;
@@ -256,17 +227,8 @@ exports.deleteAccount = async (req, res) => {
         }
 
         await connection.beginTransaction();
-
-        await connection.query(
-            'DELETE FROM user_rol WHERE user_id = ?',
-            [userId]
-        );
-
-        await connection.query(
-            'DELETE FROM users WHERE user_id = ?',
-            [userId]
-        );
-
+        await connection.query('DELETE FROM user_rol WHERE user_id = ?', [userId]);
+        await connection.query('DELETE FROM users WHERE user_id = ?', [userId]);
         await connection.commit();
 
         res.json({ message: 'Cuenta eliminada exitosamente' });
