@@ -6,7 +6,7 @@ class User {
         try {
             const [results] = await db.query(
                 `SELECT users.user_id, users.user_name, users.user_lastname, 
-                        users.user_email, users.user_phonenumber, 
+                        users.user_email, users.user_phonenumber, users.whatsapp, 
                         user_rol.rol_id
                     FROM users
                     INNER JOIN user_rol ON users.user_id = user_rol.user_id
@@ -15,58 +15,47 @@ class User {
             );
             return results[0] || null;
         } catch (error) {
+            console.error("Error en getUserData:", error);
             throw new Error('Error al obtener datos del usuario');
         }
     }
-    static async updateUserData(userId, { nombre, apellido, email, telefono, password, rol }) {
+
+    static async updateUserData(userId, { nombre, apellido, email, telefono, whatsapp, password, rol }) {
         try {
-            console.log("Datos recibidos para actualizar:", { nombre, apellido, email, telefono, password, rol });
-            console.log("ID de usuario:", userId);
             // Verificar que los datos requeridos no estén vacíos
             if (!nombre || !apellido || !email || !telefono || !rol) {
                 throw new Error("Todos los campos deben estar llenos, excepto la contraseña.");
             }
 
-            // Obtener el usuario actual para verificar si existe
             const [userResult] = await db.execute("SELECT * FROM users WHERE user_id = ? LIMIT 1", [userId]);
-            if (userResult.length === 0) {
-                return null; // Usuario no encontrado
-            }
+            if (userResult.length === 0) return null;
 
-            // Si la contraseña está vacía, no se actualiza
-            let passwordHash = userResult[0].user_password || null; // Mantener la contraseña actual
+            let passwordHash = userResult[0].user_password;
             if (password) {
-                // Encriptar la nueva contraseña
                 const salt = await bcrypt.genSalt(10);
                 passwordHash = await bcrypt.hash(password, salt);
             }
 
-            // Actualizar los datos en la base de datos
+            // CORRECCIÓN: Incluimos el campo 'whatsapp' en el UPDATE
             const [updateUserResult] = await db.execute(
                 `UPDATE users 
-                    SET user_name=?, user_lastname=?, user_email=?, user_phonenumber=?, user_password=? 
+                    SET user_name=?, user_lastname=?, user_email=?, user_phonenumber=?, whatsapp=?, user_password=? 
                     WHERE user_id=?`,
-                [nombre, apellido, email, telefono, passwordHash, userId]
+                [nombre, apellido, email, telefono, whatsapp || null, passwordHash, userId]
             );
-            // Actualizar el rol
+
             const [updateRolResult] = await db.execute(
-                `UPDATE user_rol
-                    SET rol_id=?, start_date=NOW()
-                    WHERE user_id=?`,
+                `UPDATE user_rol SET rol_id=? WHERE user_id=?`,
                 [rol, userId]
             );         
 
-            if (updateUserResult.affectedRows === 0 || updateRolResult.affectedRows === 0) {
-                return null; // No se pudo actualizar
-            }
-
-            // Retornar los datos actualizados
             return {
                 user_id: userId,
                 user_name: nombre,
                 user_lastname: apellido,
                 user_email: email,
                 user_phonenumber: telefono,
+                whatsapp: whatsapp,
                 rol_id: rol
             };
         } catch (error) {
@@ -80,18 +69,16 @@ class User {
         try {
             await connection.beginTransaction();
 
-            // 1. Hash de contraseña
             const hashedPassword = await bcrypt.hash(password, 10);
 
-            // 2. Insertar usuario
+            // Al registrarse, el whatsapp suele ser el mismo teléfono inicialmente
             const [userResult] = await connection.query(
                 `INSERT INTO users 
-                (user_name, user_lastname, user_email, user_phonenumber, user_password)
-                VALUES (?, ?, ?, ?, ?)`,
-                [nombre, apellido, email, telefono, hashedPassword]
+                (user_name, user_lastname, user_email, user_phonenumber, whatsapp, user_password)
+                VALUES (?, ?, ?, ?, ?, ?)`,
+                [nombre, apellido, email, telefono, telefono, hashedPassword]
             );
 
-            // 3. Insertar rol
             await connection.query(
                 `INSERT INTO user_rol (user_id, rol_id, start_date)
                 VALUES (?, ?, ?)`,
@@ -116,9 +103,7 @@ class User {
     static async findByEmail(email) {
         try {
             const [results] = await db.query(
-                `SELECT users.user_id, users.user_name, users.user_lastname, 
-                        users.user_email, users.user_phonenumber, users.user_password, 
-                        user_rol.rol_id
+                `SELECT users.*, user_rol.rol_id
                     FROM users
                     JOIN user_rol ON users.user_id = user_rol.user_id
                     WHERE users.user_email = ?`,
@@ -127,26 +112,6 @@ class User {
             return results[0] || null;
         } catch (error) {
             throw new Error('Error al buscar usuario por email');
-        }
-    }
-
-    static async comparePassword(plainPassword, hashedPassword) {
-        try {
-            return await bcrypt.compare(plainPassword, hashedPassword);
-        } catch (error) {
-            throw new Error('Error al comparar contraseñas');
-        }
-    }
-
-    static async emailExists(email) {
-        try {
-            const [results] = await db.query(
-                'SELECT user_id FROM users WHERE user_email = ?',
-                [email]
-            );
-            return results.length > 0;
-        } catch (error) {
-            throw new Error('Error al verificar existencia de email');
         }
     }
 }
