@@ -315,7 +315,7 @@ class Review {
     }
   }
 
-  // ===== MÉTODOS PARA ANÁLISIS DE SENTIMIENTO (T-13) =====
+  // ===== MÉTODOS PARA ANÁLISIS DE SENTIMIENTO =====
 
   /**
    * Actualizar análisis de sentimiento de una review
@@ -480,6 +480,27 @@ class Review {
       return reviews;
     } catch (error) {
       throw new Error(`Error obtaining unanalyzed reviews: ${error.message}`);
+    }
+  }
+
+  /**
+   * Obtener reseñas negativas de una propiedad (sentimiento negativo O rating <= 2)
+   * Usado para detección de patrones recurrentes
+   */
+  static async getPropertyNegativeReviews(property_id) {
+    try {
+      const [reviews] = await db.execute(
+        `SELECT review_id, rating, sentiment, sentiment_score, created_at
+         FROM reviews
+         WHERE property_id = ? 
+           AND (sentiment = 'negative' OR rating <= 2)
+         ORDER BY created_at DESC`,
+        [property_id]
+      );
+
+      return reviews;
+    } catch (error) {
+      throw new Error(`Error obteniendo reseñas negativas: ${error.message}`);
     }
   }
 }

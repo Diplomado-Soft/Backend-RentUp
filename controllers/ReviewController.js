@@ -1,5 +1,6 @@
 const Review = require('../models/ReviewModel');
 const AIAnalysisService = require('../utils/aiAnalysisService');
+const SentimentAnalysisService = require('../utils/sentimentAnalysisService');
 const Notification = require('../models/NotificationModel');
 const Contract = require('../models/ContractModel');
 
@@ -38,9 +39,9 @@ exports.createReview = async (req, res) => {
     let verified_booking = false;
     if (contract) {
       verified_booking = true;
-      console.log(`✅ Usuario ${reviewer_id} tiene contrato ${contract.status} con propiedad ${property_id}`);
+      console.log(`Usuario ${reviewer_id} tiene contrato ${contract.status} con propiedad ${property_id}`);
     } else {
-      console.log(`⚠️ Usuario ${reviewer_id} NO tiene contrato con propiedad ${property_id}`);
+      console.log(`Usuario ${reviewer_id} NO tiene contrato con propiedad ${property_id}`);
     }
 
     const review = await Review.createReview({
@@ -51,20 +52,42 @@ exports.createReview = async (req, res) => {
       verified_booking
     });
 
-    // ===== T-13: Análisis de IA con Ollama (Asincrónico) =====
+    // ===== Análisis de IA con Ollama (Asincrónico) =====
     // Se ejecuta en background, no bloquea la creación de la review
     (async () => {
       try {
-        console.log(`🤖 [T-13] Iniciando análisis con Ollama para review ${review.review_id}...`);
-        const analysis = await AIAnalysisService.processReviewAnalysis(
-          comment || '',
-          rating
-        );
+        console.log(`Iniciando análisis con Ollama para review ${review.review_id}...`);
+        
+        let analysis;
+        
+        // Intentar primero con Ollama
+        try {
+          analysis = await AIAnalysisService.processReviewAnalysis(
+            comment || '',
+            rating
+          );
+          
+          // Verificar si el análisis fue exitoso
+          if (analysis.status === 'error') {
+            throw new Error(analysis.error || 'Ollama analysis failed');
+          }
+        } catch (ollamaError) {
+          console.warn(`Ollama no disponible, usando fallback local:`, ollamaError.message);
+          // Fallback con SentimentAnalysisService (librería local)
+          analysis = {
+            sentiment: SentimentAnalysisService.analyzeSentiment(comment || ''),
+            moderation: { requires_moderation: false, reason: null },
+            status: 'fallback'
+          };
+        }
 
         // Guardar resultado en BD
+        const sentimentLabel = analysis.sentiment?.sentiment || 'neutral';
+        const sentimentScore = analysis.sentiment?.score ?? 3;
+        
         await Review.updateSentimentAnalysis(review.review_id, {
-          sentiment: analysis.sentiment?.sentiment || 'neutral',
-          sentiment_score: analysis.sentiment?.score || 3,
+          sentiment: sentimentLabel,
+          sentiment_score: sentimentScore,
           moderation_flag: analysis.moderation?.requires_moderation || false,
           flag_reason: analysis.moderation?.reason || null,
           analyzed_at: new Date()
@@ -81,17 +104,45 @@ exports.createReview = async (req, res) => {
           // Notificación in-app para admins
           await Notification.createForAdmins({
             type: 'review_flagged',
-            title: '🚩 Reseña flaggeada por IA',
+            title: 'Reseña flaggeada por IA',
             message: `La IA detectó contenido en una reseña: ${analysis.moderation.reason || analysis.moderation.flags.join(', ')}`,
             reference_id: review.review_id,
             reference_type: 'review'
           });
-          console.log(`⚠️ [T-13] Review ${review.review_id} flagged: ${analysis.moderation.reason}`);
-        } else {
-          console.log(`✅ [T-13] Review ${review.review_id} analizada - Sentimiento: ${analysis.sentiment?.sentiment}`);
+          console.log(`Review ${review.review_id} flagged: ${analysis.moderation.reason}`);
         }
+
+        // ===== Alerta por rating < 3 =====
+        const isLowRating = rating < 3;
+        const isNegativeSentiment = analysis.sentiment?.sentiment === 'negative';
+        
+        if (isLowRating || isNegativeSentiment) {
+          await Notification.createForAdmins({
+            type: 'low_rating_alert',
+            title: isNegativeSentiment ? 'Reseña negativa detectada' : 'Rating bajo detectado',
+            message: `Propiedad ${property_id}: Rating ${rating}/5${isNegativeSentiment ? `, Sentimiento: negativo` : ''} - "${(comment || '').substring(0, 80)}..."`,
+            reference_id: review.review_id,
+            reference_type: 'review'
+          });
+          console.log(`Alerta rating bajo: Property ${property_id}, Rating ${rating}, Sentimiento: ${analysis.sentiment?.sentiment}`);
+        }
+
+        // ===== T-13: Detección de patrones recurrentes (3+ reseñas negativas) =====
+        const negativeReviews = await Review.getPropertyNegativeReviews(property_id);
+        if (negativeReviews.length >= 3) {
+          await Notification.createForAdmins({
+            type: 'recurring_pattern_alert',
+            title: 'PATRÓN RECURRENTE: 3+ reseñas negativas',
+            message: `La propiedad ${property_id} acumula ${negativeReviews.length} reseñas negativas. Se requiere atención inmediata.`,
+            reference_id: property_id,
+            reference_type: 'property'
+          });
+          console.log(`PATRÓN RECURRENTE: Property ${property_id} tiene ${negativeReviews.length} reseñas negativas`);
+        }
+
+        console.log(`Review ${review.review_id} analizada - Sentimiento: ${analysis.sentiment?.sentiment}, Rating: ${rating}`);
       } catch (analysisError) {
-        console.error(`❌ [T-13] Error analizando review ${review.review_id}:`, analysisError.message);
+        console.error(`Error analizando review ${review.review_id}:`, analysisError.message);
         // No afecta creación, solo log
       }
     })();
@@ -264,7 +315,7 @@ exports.getReviewStats = async (req, res) => {
   }
 };
 
-// ===== T-13: MÉTODOS DE ANÁLISIS DE SENTIMIENTO =====
+// ===== MÉTODOS DE ANÁLISIS DE SENTIMIENTO =====
 
 /**
  * GET /admin/reviews/flagged - Obtener reviews flagged para moderación
@@ -381,7 +432,7 @@ exports.approveReview = async (req, res) => {
     // Registrar acción
     await Review.logModerationAction(review_id, admin_id, 'approve', notes);
 
-    console.log(`✅ Review ${review_id} aprobada por admin ${admin_id}`);
+    console.log(`Review ${review_id} aprobada por admin ${admin_id}`);
 
     res.json({
       success: true,
@@ -432,7 +483,7 @@ exports.rejectReview = async (req, res) => {
       });
     }
 
-    console.log(`❌ Review ${review_id} rechazada por admin ${admin_id}. Motivo: ${notes}`);
+    console.log(`Review ${review_id} rechazada por admin ${admin_id}. Motivo: ${notes}`);
 
     res.json({
       success: true,
@@ -481,7 +532,7 @@ exports.analyzeBatch = async (req, res) => {
       });
     }
 
-    console.log(`🤖 [T-13] Iniciando análisis en batch de ${unanalyzedReviews.length} reviews con Ollama...`);
+    console.log(`Iniciando análisis en batch de ${unanalyzedReviews.length} reviews con Ollama...`);
 
     // Preparar datos para batch
     const reviewsForAnalysis = unanalyzedReviews.map(r => ({
@@ -521,15 +572,15 @@ exports.analyzeBatch = async (req, res) => {
           analyzed++;
         } else {
           errors++;
-          console.error(`⚠️ Error analizando review ${result.review_id}:`, result.error);
+          console.error(`Error analizando review ${result.review_id}:`, result.error);
         }
       } catch (dbError) {
-        console.error(`❌ Error guardando análisis para review ${result.review_id}:`, dbError.message);
+        console.error(`Error guardando análisis para review ${result.review_id}:`, dbError.message);
         errors++;
       }
     }
 
-    console.log(`✅ [T-13] Batch analysis completado: ${analyzed} analizadas, ${flagged} flagged, ${errors} errores`);
+    console.log(`Batch analysis completado: ${analyzed} analizadas, ${flagged} flagged, ${errors} errores`);
 
     res.json({
       success: true,  
@@ -540,7 +591,7 @@ exports.analyzeBatch = async (req, res) => {
       total: unanalyzedReviews.length
     });
   } catch (error) {
-    console.error('❌ Error en análisis batch:', error);
+    console.error('Error en análisis batch:', error);
     res.status(500).json({
       success: false,
       error: error.message || 'Error en análisis batch'
