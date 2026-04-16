@@ -1,9 +1,9 @@
 const mysql = require('mysql2/promise'); 
-require('dotenv').config();
+require ('dotenv').config();
 
 const pool = mysql.createPool({
     host: process.env.DB_HOST,
-    port: process.env.DB_PORT || 3306,
+    port: process.env.DB_PORT || 3308,
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
@@ -14,18 +14,18 @@ const pool = mysql.createPool({
     enableKeepAlive: true,
 });
 
-// Función para testear la conexión al arrancar
 async function testConnection() {
     try {
         const connection = await pool.getConnection();
-        console.log(`✅ RentUp DB: Conectado a "${process.env.DB_NAME}" en ${process.env.DB_HOST}`);
+        console.log(' ✅ Conexión a la base de datos establecida correctamente');
         connection.release();
     } catch (err) {
-        console.error('❌ Error crítico de conexión a la base de datos:', err.message);
-        console.log('Revisa tu archivo .env y que MySQL esté corriendo.');
+        console.error(' ❌ Error al conectar a la base de datos:', err);
     }
 }
-
 testConnection();
 
 module.exports = pool;
+
+console.log(" Base de datos iniciada - debug temporal");
+

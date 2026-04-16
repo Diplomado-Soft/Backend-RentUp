@@ -85,7 +85,7 @@ exports.validateFiles = async (req, res, next) => {
                         fileName: file.originalname
                     });
                     
-                    console.log('Imagen procesada y subida a IDrive e2:', {
+                    console.log('✅ Imagen procesada y subida a IDrive e2:', {
                         filename: file.originalname,
                         s3_key: uploadResult.key
                     });
@@ -96,10 +96,10 @@ exports.validateFiles = async (req, res, next) => {
             }
         }
         
-        console.log(`${req.processedFiles.length} archivo(s) procesado(s) y subido(s) a IDrive e2`);
+        console.log(`✅ ${req.processedFiles.length} archivo(s) procesado(s) y subido(s) a IDrive e2`);
         next();
     } catch (error) {
-        console.error('Error en validateFiles:', error.message);
+        console.error('❌ Error en validateFiles:', error.message);
         return next(error);
     }
 };
