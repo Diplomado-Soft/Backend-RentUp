@@ -308,6 +308,20 @@ exports.getAllApartments = async (req, res) => {
     }
 };
 
+exports.getApartmentById = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const apartment = await Apartment.getApartmentById(id);
+        if (!apartment) {
+            return res.status(404).json({ error: 'Apartamento no encontrado' });
+        }
+        res.json(apartment);
+    } catch (error) {
+        console.error('Error obteniendo apartamento por ID:', error);
+        res.status(500).json({ error: 'Error al obtener el apartamento' });
+    }
+};
+
 exports.getMarkersInfo = async (req, res) => {
     try {
         const results = await Apartment.getMarkersInfo();

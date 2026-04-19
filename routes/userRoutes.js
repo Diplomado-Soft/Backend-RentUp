@@ -7,6 +7,7 @@ const authMiddleware = require('../middlewares/authMiddleware'); // Middleware p
 router.post('/signup', userController.signup);
 router.post('/login', userController.login);
 router.put('/update', authMiddleware, userController.updateUserData);
+router.put('/profile', authMiddleware, userController.updateUserData);
 router.put('/update-whatsapp', authMiddleware, userController.updateWhatsApp);
 router.get('/getUser', authMiddleware, userController.getUserData);
 router.delete('/delete-account', authMiddleware, userController.deleteAccount);
