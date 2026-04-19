@@ -307,7 +307,7 @@ class Apartment {
                     u.user_lastname,
                     u.user_email,
                     u.user_phonenumber,
-                    u.whatsapp,
+                    IF(u.phone_confirmed = 1, u.whatsapp, NULL) AS whatsapp,
                     GROUP_CONCAT(CONCAT(ai.id_image, ':', ai.s3_key)) AS image_data
                 FROM apartments AS a
                 LEFT JOIN barrio AS b ON a.id_barrio = b.id_barrio
@@ -364,6 +364,70 @@ class Apartment {
             return processedResults;
         } catch (error) {
             console.error('Error en getAllApartments:', error.message);
+            throw error;
+        }
+    }
+
+    static async getApartmentById(id_apt) {
+        const { getValidSignedUrl } = require('../services/urlRefreshService');
+        try {
+            const [results] = await db.query(
+                `SELECT
+                    a.id_apt,
+                    a.direccion_apt,
+                    a.latitud_apt,
+                    a.longitud_apt,
+                    a.info_add_apt,
+                    a.price,
+                    a.bedrooms,
+                    a.bathrooms,
+                    a.area_m2,
+                    a.status as publication_status,
+                    b.barrio,
+                    u.user_id,
+                    u.user_name,
+                    u.user_lastname,
+                    u.user_email,
+                    u.user_phonenumber,
+                    IF(u.phone_confirmed = 1, u.whatsapp, NULL) AS whatsapp,
+                    GROUP_CONCAT(CONCAT(ai.id_image, ':', ai.s3_key)) AS image_data
+                FROM apartments AS a
+                LEFT JOIN barrio AS b ON a.id_barrio = b.id_barrio
+                LEFT JOIN users AS u ON a.user_id = u.user_id
+                LEFT JOIN apartment_images AS ai ON a.id_apt = ai.id_apt
+                WHERE a.id_apt = ?
+                GROUP BY a.id_apt`,
+                [id_apt]
+            );
+
+            if (!results || results.length === 0) {
+                return null;
+            }
+
+            const apartment = results[0];
+            if (apartment.image_data) {
+                const imagePairs = apartment.image_data.split(',');
+                const images = await Promise.all(
+                    imagePairs.map(async pair => {
+                        try {
+                            const [id, s3_key] = pair.split(':');
+                            const { signedUrl, expiresAt } = await getValidSignedUrl(parseInt(id));
+                            return { id, s3_key, url: signedUrl, expiresAt };
+                        } catch (error) {
+                            console.error(`Error processing image for apartment ${id_apt}:`, error.message);
+                            return null;
+                        }
+                    })
+                );
+                apartment.images = images.filter(img => img !== null);
+            } else {
+                apartment.images = [];
+            }
+            delete apartment.image_data;
+
+            return apartment;
+        } catch (error) {
+            console.error('Error en getApartmentById:', error.message);
             throw error;
         }
     }
@@ -631,7 +695,7 @@ class Apartment {
                 u.user_lastname,
                 u.user_email,
                 u.user_phonenumber,
-                u.whatsapp,
+                IF(u.phone_confirmed = 1, u.whatsapp, NULL) AS whatsapp,
                 GROUP_CONCAT(CONCAT(ai.id_image, ':', ai.s3_key)) AS image_data
             FROM apartments AS a
             LEFT JOIN barrio AS b ON a.id_barrio = b.id_barrio

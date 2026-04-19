@@ -38,5 +38,6 @@ router.delete('/delete/:id_apt',
 router.get('/getapts', ApartmentController.getAllApartments);
 router.get('/getFiltered', ApartmentController.getApartmentsFiltered);
 router.get('/getMarkersInfo', ApartmentController.getMarkersInfo);
+router.get('/:id', ApartmentController.getApartmentById);
 
 module.exports = router;
