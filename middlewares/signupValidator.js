@@ -1,15 +1,5 @@
-/**
- * middlewares/signupValidator.js
- * Tarea #4 – Validar y guardar rol en endpoint de registro
- *
- * Instalar dependencia antes de usar:
- *   npm install express-validator
- */
-const { body, validationResult } = require('express-validator');
 
-// Roles permitidos en registro público (coinciden con tabla 'rol' en BD)
-// 1 = usuario/inquilino  |  2 = arrendador/propietario
-// El 3 (admin) NO se puede elegir desde el registro público
+const { body, validationResult } = require('express-validator');
 const ROLES_PERMITIDOS = [1, 2];
 
 const signupRules = [

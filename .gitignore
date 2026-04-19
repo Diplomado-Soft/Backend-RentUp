@@ -1,8 +1,4 @@
 .env
 node_modules
-<<<<<<< HEAD
 package-lock.json
 certs/
-=======
-package-lock.json
->>>>>>> cd6cec2 (Guardado temporal de archivos locales)

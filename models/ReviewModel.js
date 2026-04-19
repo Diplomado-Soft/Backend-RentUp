@@ -63,7 +63,7 @@ class Review {
   }
 
   /**
-   * Obtener todas las reseñas feitas por un usuario
+   * Obtener todas las reseñas malas por un usuario
    */
   static async getUserReviews(user_id) {
     try {
