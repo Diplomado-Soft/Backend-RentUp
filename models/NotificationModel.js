@@ -21,22 +21,6 @@ class NotificationModel {
                     INDEX idx_created_at (created_at)
                 )
             `);
-            
-            await db.execute(`
-                CREATE TABLE IF NOT EXISTS admin_notifications (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    user_id INT NOT NULL,
-                    type VARCHAR(50) NOT NULL,
-                    title VARCHAR(255) NOT NULL,
-                    message TEXT,
-                    reference_id INT,
-                    reference_type VARCHAR(50),
-                    read_at DATETIME,
-                    created_at DATETIME NOT NULL,
-                    INDEX idx_user_id (user_id),
-                    INDEX idx_created_at (created_at)
-                )
-            `);
         } catch (error) {
             console.error('Error creando tabla user_notifications:', error);
         }
