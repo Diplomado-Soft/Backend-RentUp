@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 const axios = require('axios');
 
 async function analyzePendingReviews(options = {}) {
@@ -24,6 +25,14 @@ async function analyzePendingReviews(options = {}) {
         }
         throw err;
     }
+=======
+async function analyzePendingReviews(options = {}) {
+    return {
+        success: false,
+        ollamaAvailable: false,
+        analyzed: 0
+    };
+>>>>>>> 33aea86 (feat: add latitude and longitude coordinates to apartment model #27)
 }
 
 module.exports = { analyzePendingReviews };
