@@ -112,7 +112,7 @@ exports.signup = async (req, res) => {
             return res.status(409).json({ error: 'El usuario ya está registrado' });
         }
         
-        // Crear usuario
+        // Crear usuario en la db
         const newUser = await User.signup({
             nombre,
             apellido,
