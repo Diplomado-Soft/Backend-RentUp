@@ -17,7 +17,7 @@ async function importDatabase() {
   
   try {
     // 1. Obtener la ruta del archivo SQL
-    const root = path.resolve(__dirname, '..', '..');
+    const root = path.resolve(__dirname, '..');
     const schemaPath = path.join(root, 'database', 'rent.sql');
     
     if (!await fileExists(schemaPath)) {

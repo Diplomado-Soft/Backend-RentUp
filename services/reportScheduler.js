@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 const cron = require('node-cron');
 const { generateMonthlyReport } = require('../controllers/reportController');
 
@@ -26,10 +25,3 @@ function stopReportScheduler() {
 }
 
 module.exports = { startReportScheduler, stopReportScheduler };
-=======
-function startReportScheduler() {
-    console.log('📊 [reportScheduler] Programador iniciado');
-}
-
-module.exports = { startReportScheduler };
->>>>>>> 33aea86 (feat: add latitude and longitude coordinates to apartment model #27)
