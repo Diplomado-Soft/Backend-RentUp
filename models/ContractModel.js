@@ -61,7 +61,7 @@ class Contract {
             `SELECT a.id_apt, a.direccion_apt, b.barrio, a.price, a.status as apt_status
             FROM apartments a
             LEFT JOIN barrio b ON a.id_barrio = b.id_barrio
-            WHERE a.user_id = ? AND (a.status = 'available' OR a.status IS NULL) AND a.status = 'available'
+            WHERE a.user_id = ? AND a.status = 'available'
             ORDER BY a.direccion_apt`,
             [landlord_id]
         );
