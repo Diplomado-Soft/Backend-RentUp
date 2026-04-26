@@ -307,7 +307,11 @@ class Apartment {
                     u.user_lastname,
                     u.user_email,
                     u.user_phonenumber,
+<<<<<<< HEAD
+                    u.whatsapp,
+=======
                     IF(u.phone_confirmed = 1, u.whatsapp, NULL) AS whatsapp,
+>>>>>>> ca6300ea2952765ab65be92a35fe9e8c9b7ad2e0
                     GROUP_CONCAT(CONCAT(ai.id_image, ':', ai.s3_key)) AS image_data
                 FROM apartments AS a
                 LEFT JOIN barrio AS b ON a.id_barrio = b.id_barrio
@@ -368,6 +372,8 @@ class Apartment {
         }
     }
 
+<<<<<<< HEAD
+=======
     static async getApartmentById(id_apt) {
         const { getValidSignedUrl } = require('../services/urlRefreshService');
         try {
@@ -432,6 +438,7 @@ class Apartment {
         }
     }
 
+>>>>>>> ca6300ea2952765ab65be92a35fe9e8c9b7ad2e0
     static async getMarkersInfo() {
         const [results] = await db.query(
             `SELECT
@@ -695,7 +702,11 @@ class Apartment {
                 u.user_lastname,
                 u.user_email,
                 u.user_phonenumber,
+<<<<<<< HEAD
+                u.whatsapp,
+=======
                 IF(u.phone_confirmed = 1, u.whatsapp, NULL) AS whatsapp,
+>>>>>>> ca6300ea2952765ab65be92a35fe9e8c9b7ad2e0
                 GROUP_CONCAT(CONCAT(ai.id_image, ':', ai.s3_key)) AS image_data
             FROM apartments AS a
             LEFT JOIN barrio AS b ON a.id_barrio = b.id_barrio
