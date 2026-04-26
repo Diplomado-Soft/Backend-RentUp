@@ -1,5 +1,5 @@
 const multer = require('multer');
-const fileType = require('file-type');
+const fromBuffer = require('file-type');
 const sharp = require('sharp');
 const idriveService = require('../utils/idriveService');
 require('dotenv').config();
@@ -47,7 +47,7 @@ exports.validateFiles = async (req, res, next) => {
         
         for (const file of req.files) {
             try {
-                const type = await fileType.fileTypeFromBuffer(file.buffer);
+                const type = await fromBuffer(file.buffer);
                 
                 // Validación de tipo real
                 if (!type || !allowedMimes.has(type.mime)) {
