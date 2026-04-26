@@ -23,24 +23,54 @@ exports.getUserData = async (req, res) => {
         res.status(500).json({ error: "Error en el servidor" });
     }
 }
+const validateContactNumber = (value, fieldName) => {
+    if (value === undefined || value === null || value === '') return null;
+
+    const normalized = value.toString().trim();
+    const cleaned = normalized.replace(/[^+\d]/g, '');
+
+    if (!/^\+?\d+$/.test(cleaned)) {
+        throw new Error(`Formato de ${fieldName} inválido. Solo se permiten dígitos y un + opcional al inicio.`);
+    }
+
+    let digits = cleaned.startsWith('+') ? cleaned.slice(1) : cleaned;
+
+    if (digits.length < 7 || digits.length > 15) {
+        throw new Error(`El ${fieldName} debe tener entre 7 y 15 dígitos.`);
+    }
+
+    if (digits.length === 10 && digits.startsWith('3')) {
+        digits = '57' + digits;
+    }
+
+    if (digits.length > 15) {
+        throw new Error(`El ${fieldName} no puede superar los 15 caracteres.`);
+    }
+
+    return digits;
+};
+
 exports.updateUserData = async (req, res) => {
     console.log(req.body);
-    const { nombre, apellido, email, telefono, password, rol } = req.body;
+    const { nombre, apellido, email, telefono, password, rol, whatsapp } = req.body;
     const userId = req.user.id; // Usuario autenticado desde el token
 
     try {
+        const validWhatsapp = validateContactNumber(whatsapp, 'WhatsApp');
+        const validPhone = validateContactNumber(telefono, 'teléfono');
+
         // Llamar al modelo para actualizar datos
         const updatedUser = await User.updateUserData(userId, {
             nombre,
             apellido,
             email,
-            telefono,
-            password: password !== undefined ? password: null, // Si no se proporciona, no se actualiza
-            rol
+            telefono: validPhone,
+            password: password !== undefined ? password : null, // Si no se proporciona, no se actualiza
+            rol,
+            whatsapp: validWhatsapp
         });
 
         if (!updatedUser) {
-            console.error("Error al actualizar usuario:", error);
             return res.status(404).json({ error: "Usuario no encontrado o no se pudo actualizar" });
         }
 
@@ -50,7 +80,7 @@ exports.updateUserData = async (req, res) => {
         });
     } catch (error) {
         console.error("Error actualizando usuario:", error);
-        res.status(500).json({ error: "Error en el servidor" });
+        res.status(400).json({ error: error.message || "Error en el servidor" });
     }
 };
 
@@ -82,7 +112,7 @@ exports.signup = async (req, res) => {
             return res.status(409).json({ error: 'El usuario ya está registrado' });
         }
         
-        // Crear usuario
+        // Crear usuario en la db
         const newUser = await User.signup({
             nombre,
             apellido,
