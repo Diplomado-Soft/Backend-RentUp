@@ -1,9 +1,17 @@
+#!/usr/bin/env node
+
+/**
+ * Test Script for Ollama Integration
+ * Verifica que Ollama está instalado y funcionando correctamente
+ * Comando: node test-ollama.js
+ */
+
 const axios = require('axios');
 
 const OLLAMA_URL = process.env.OLLAMA_API_URL || 'http://localhost:11434';
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'phi3.5';
 
-console.log('Ollama Integration Test Suite\n');
+console.log('🔍 Ollama Integration Test Suite\n');
 console.log('='.repeat(50));
 console.log(`Ollama URL:   ${OLLAMA_URL}`);
 console.log(`Model Target: ${OLLAMA_MODEL}`);
@@ -13,13 +21,13 @@ console.log('='.repeat(50));
  * Test 1: Check if Ollama is running
  */
 async function testOllamaRunning() {
-  console.log('\n Test 1: Verificar si Ollama está corriendo...');
+  console.log('\n📋 Test 1: Verificar si Ollama está corriendo...');
   try {
     const response = await axios.get(`${OLLAMA_URL}/api/tags`, { timeout: 5000 });
-    console.log('Ollama server está activo');
+    console.log('✅ Ollama server está activo');
     return true;
   } catch (error) {
-    console.error('Ollama no responde en ' + OLLAMA_URL);
+    console.error('❌ Ollama no responde en ' + OLLAMA_URL);
     console.error(`   Error: ${error.message}`);
     console.error('\n   Solución: Ejecuta en otra terminal:');
     console.error('   $ ollama serve\n');
@@ -31,24 +39,24 @@ async function testOllamaRunning() {
  * Test 2: Check if Phi-3.5 Mini model is downloaded
  */
 async function testModelDownloaded() {
-  console.log('\n Test 2: Verificar si el modelo está descargado...');
+  console.log('\n📋 Test 2: Verificar si el modelo está descargado...');
   try {
     const response = await axios.get(`${OLLAMA_URL}/api/tags`, { timeout: 5000 });
     const models = response.data.models || [];
     const hasModel = models.some(m => m.name.includes('phi3.5'));
     
     if (hasModel) {
-      console.log(`Modelo ${OLLAMA_MODEL} está descargado`);
+      console.log(`✅ Modelo ${OLLAMA_MODEL} está descargado`);
       return true;
     } else {
-      console.error(`Modelo ${OLLAMA_MODEL} NO está descargado`);
+      console.error(`❌ Modelo ${OLLAMA_MODEL} NO está descargado`);
       console.error('\n   Modelos disponibles:');
       models.forEach(m => console.error(`   - ${m.name}`));
       console.error(`\n   Solución: El modelo phi3.5 ya está instalado, continúa con npm start\n`);
       return false;
     }
   } catch (error) {
-    console.error('Error verificando modelos');
+    console.error('❌ Error verificando modelos');
     console.error(`   ${error.message}`);
     return false;
   }
@@ -58,7 +66,7 @@ async function testModelDownloaded() {
  * Test 3: Test simple generation
  */
 async function testSimpleGeneration() {
-  console.log('\n Test 3: Hacer una llamada simple al modelo...');
+  console.log('\n📋 Test 3: Hacer una llamada simple al modelo...');
   try {
     const response = await axios.post(
       `${OLLAMA_URL}/api/generate`,
@@ -72,19 +80,19 @@ async function testSimpleGeneration() {
     );
 
     if (response.data.response) {
-      console.log(`Generación exitosa`);
+      console.log(`✅ Generación exitosa`);
       console.log(`   Respuesta: "${response.data.response.substring(0, 100)}..."`);
       console.log(`   Tiempo: ${response.data.eval_duration / 1e9}s`);
       return true;
     } else {
-      console.error('Respuesta vacía del modelo');
+      console.error('❌ Respuesta vacía del modelo');
       return false;
     }
   } catch (error) {
-    console.error('Error en generación');
+    console.error('❌ Error en generación');
     console.error(`   ${error.message}`);
     if (error.code === 'ECONNREFUSED') {
-      console.error('\n Conexión rechazada. Asegúrate de:');
+      console.error('\n   ⚠️ Conexión rechazada. Asegúrate de:');
       console.error('   1. ollama serve está corriendo');
       console.error('   2. Puerto 11434 está abierto');
     }
@@ -96,7 +104,7 @@ async function testSimpleGeneration() {
  * Test 4: Test JSON response parsing
  */
 async function testJSONParsing() {
-  console.log('\n Test 4: Probar respuesta JSON del modelo...');
+  console.log('\n📋 Test 4: Probar respuesta JSON del modelo...');
   try {
     const prompt = `Responde SOLO con JSON válido:
     {
@@ -123,20 +131,20 @@ async function testJSONParsing() {
       const jsonMatch = responseText.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         const json = JSON.parse(jsonMatch[0]);
-        console.log('JSON parsing exitoso');
+        console.log('✅ JSON parsing exitoso');
         console.log(`   Parsed: ${JSON.stringify(json)}`);
         return true;
       } else {
-        console.warn('No se encontró JSON en respuesta');
+        console.warn('⚠️ No se encontró JSON en respuesta');
         console.warn(`   Raw: "${responseText.substring(0, 100)}..."`);
         return true; // No es critical
       }
     } catch (parseError) {
-      console.warn('No se pudo parsear JSON');
+      console.warn('⚠️ No se pudo parsear JSON');
       return true; // No es critical
     }
   } catch (error) {
-    console.error('Error en test JSON');
+    console.error('❌ Error en test JSON');
     console.error(`   ${error.message}`);
     return false;
   }
@@ -146,7 +154,7 @@ async function testJSONParsing() {
  * Test 5: Test sentiment analysis prompt
  */
 async function testSentimentPrompt() {
-  console.log('\n Test 5: Probar análisis de sentimiento...');
+  console.log('\n📋 Test 5: Probar análisis de sentimiento...');
   try {
     const reviewText = 'Este apartamento es excelente, muy cómodo y el dueño es muy amable.';
     
@@ -175,17 +183,17 @@ async function testSentimentPrompt() {
     
     if (jsonMatch) {
       const json = JSON.parse(jsonMatch[0]);
-      console.log('Análisis de sentimiento funciona');
+      console.log('✅ Análisis de sentimiento funciona');
       console.log(`   Sentimiento: ${json.sentiment}`);
       console.log(`   Score: ${json.score}/5`);
       console.log(`   Confianza: ${(json.confidence * 100).toFixed(1)}%`);
       return true;
     } else {
-      console.warn('Respuesta no contiene JSON');
+      console.warn('⚠️ Respuesta no contiene JSON');
       return true;
     }
   } catch (error) {
-    console.error('Error en test de sentimiento');
+    console.error('❌ Error en test de sentimiento');
     console.error(`   ${error.message}`);
     return false;
   }
@@ -215,23 +223,23 @@ async function runTests() {
         failed++;
       }
     } catch (error) {
-      console.error(`Test exception: ${error.message}`);
+      console.error(`❌ Test exception: ${error.message}`);
       failed++;
     }
   }
 
   console.log('\n' + '='.repeat(50));
-  console.log(`Resultados: ${passed} pasados, ${failed} fallidos\n`);
+  console.log(`📊 Resultados: ${passed} pasados, ${failed} fallidos\n`);
 
   if (failed === 0) {
-    console.log('¡Ollama está listo para T-13!\n');
+    console.log('🎉 ¡Ollama está listo para T-13!\n');
     console.log('Próximos pasos:');
     console.log('1. npm start en terminal de servidor');
     console.log('2. En admin panel, ir a "Reviews" → "Analyze Batch" para analizar reviews con IA');
     console.log('3. El servidor analizará reviews con Ollama IA\n');
     process.exit(0);
   } else {
-    console.log('Hay problemas a resolver antes de continuar\n');
+    console.log('❌ Hay problemas a resolver antes de continuar\n');
     console.log('Troubleshooting:');
     console.log('1. ¿Ollama está instalado? https://ollama.ai');
     console.log('2. ¿ollama serve está corriendo?');
