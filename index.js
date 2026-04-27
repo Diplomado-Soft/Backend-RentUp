@@ -78,6 +78,7 @@ const adminApartmentRoutes = require('./routes/adminApartmentRoutes');
 const contractRoutes = require('./routes/contractRoutes');
 const reportRoutes = require('./routes/reportRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
+const geolocationRoutes = require('./routes/geolocationRoutes');
 const { ChatModel } = require('./chat/chatModel');
 
 app.use('/users', userRoutes);
@@ -92,6 +93,7 @@ app.use('/reviews', reviewRoutes);
 app.use('/contracts', contractRoutes);
 app.use('/admin/reports', reportRoutes);
 app.use('/admin/notifications', notificationRoutes);
+app.use('/geolocation', geolocationRoutes);
 
 // === Manejo de errores ===
 app.use((_, res) => res.status(404).json({ error: 'Endpoint no encontrado' }));
