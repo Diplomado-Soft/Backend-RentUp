@@ -1,34 +1,26 @@
 const express = require('express');
 const router = express.Router();
-const Contract = require('../models/ContractModel');
+const contractController = require('../controllers/contractController');
 const authMiddleware = require('../middlewares/authMiddleware');
 
 router.get('/', (req, res) => res.json({ message: 'Contract routes placeholder' }));
 
-router.post('/', (req, res) => res.json({ message: 'Create contract placeholder' }));
+router.post('/', authMiddleware, contractController.createContract);
 
-router.get('/:id', (req, res) => res.json({ message: 'Get contract placeholder' }));
+router.get('/landlord/contracts', authMiddleware, contractController.getLandlordContracts);
 
-router.get('/landlord/contracts', authMiddleware, async (req, res) => {
-    try {
-        const landlordId = req.user.id;
-        const contracts = await Contract.getByLandlord(landlordId);
-        res.json(contracts);
-    } catch (error) {
-        console.error('Error fetching contracts:', error);
-        res.status(500).json({ error: error.message });
-    }
-});
+router.get('/landlord/available-apartments', authMiddleware, contractController.getAvailableApartments);
 
-router.get('/landlord/available-apartments', authMiddleware, async (req, res) => {
-    try {
-        const landlordId = req.user.id;
-        const apartments = await Contract.getAvailableApartments(landlordId);
-        res.json(apartments);
-    } catch (error) {
-        console.error('Error fetching available apartments:', error);
-        res.status(500).json({ error: error.message });
-    }
-});
+router.get('/search-tenants', authMiddleware, contractController.searchTenants);
+
+router.get('/my-contracts', authMiddleware, contractController.getMyContracts);
+
+router.get('/:id_contract', authMiddleware, contractController.getContractById);
+
+router.put('/:id_contract/status', authMiddleware, contractController.updateContractStatus);
+
+router.get('/stats/monthly', authMiddleware, contractController.getMonthlyStats);
+
+router.post('/expire-old', authMiddleware, contractController.expireOldContracts);
 
 module.exports = router;
