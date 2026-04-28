@@ -145,3 +145,56 @@ exports.testConnection = async () => {
         return false;
     }
 };
+
+/**
+ * Renovar todas las URLs próximas a expirar
+ * Busca imágenes en la base de datos y renueva sus URLs
+ */
+exports.refreshAllUrls = async () => {
+    const db = require('../config/db');
+    try {
+        console.log('[RefreshAll] Buscando imágenes próximas a expirar...');
+        
+        // Buscar imágenes que ya expiraron o expiran en menos de 24 horas
+        const [images] = await db.query(
+            `SELECT id_image, s3_key, expires_at 
+             FROM apartment_images 
+             WHERE expires_at IS NOT NULL 
+             AND expires_at <= DATE_ADD(NOW(), INTERVAL 24 HOUR)`
+        );
+        
+        if (!images || images.length === 0) {
+            console.log('[RefreshAll] No hay imágenes por renovar');
+            return { renewed: 0 };
+        }
+        
+        console.log(`[RefreshAll] ${images.length} imágenes encontradas para renovar`);
+        
+        let renewed = 0;
+        for (const img of images) {
+            try {
+                // Generar nueva URL firmada
+                const newData = await exports.getSignedUrl(img.s3_key);
+                
+                // Actualizar en la base de datos
+                await db.query(
+                    `UPDATE apartment_images 
+                     SET signed_url = ?, expires_at = ? 
+                     WHERE id_image = ?`,
+                    [newData.signedUrl, newData.expiresAt, img.id_image]
+                );
+                
+                renewed++;
+            } catch (err) {
+                console.error(`Error renovando imagen ${img.id_image}:`, err.message);
+            }
+        }
+        
+        console.log(`[RefreshAll] ${renewed} URLs renovadas`);
+        return { renewed };
+        
+    } catch (error) {
+        console.error('[RefreshAll] Error:', error.message);
+        throw error;
+    }
+};
