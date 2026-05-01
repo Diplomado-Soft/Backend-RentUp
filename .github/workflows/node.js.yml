@@ -1,13 +1,13 @@
 name: Node.js CI
 
 on:
+  push:
+    branches: [ "main", "develop" ]
   pull_request:
     branches: [ "main" ]
-    types: [opened, synchronize, closed]
 
 jobs:
-  build:
-    if: github.event_name == 'pull_request' && (github.event.action != 'closed' || github.event.pull_request.merged == true)
+  test:
     runs-on: ubuntu-latest
 
     strategy:
@@ -26,8 +26,42 @@ jobs:
     - name: Install dependencies
       run: npm ci
 
-    - name: Build
-      run: npm run build --if-present
+    - name: Run unit tests
+      run: npm run test:unit
+      env:
+        NODE_ENV: test
+        JWT_SECRET: test-secret-ci
+        JWT_EXPIRES: 1h
+        JWT_REFRESH_SECRET: test-refresh-ci
+        FRONTEND_URL: http://localhost:3000
 
-    - name: Run linter
-      run: npm run lint || true
+    - name: Run integration tests
+      run: npm run test:integration
+      env:
+        NODE_ENV: test
+        JWT_SECRET: test-secret-ci
+        JWT_EXPIRES: 1h
+        JWT_REFRESH_SECRET: test-refresh-ci
+        FRONTEND_URL: http://localhost:3000
+
+    - name: Run full test suite with coverage
+      run: npm test
+      env:
+        NODE_ENV: test
+        JWT_SECRET: test-secret-ci
+        JWT_EXPIRES: 1h
+        JWT_REFRESH_SECRET: test-refresh-ci
+        FRONTEND_URL: http://localhost:3000
+        IDRIVE_BUCKET: test-bucket
+        IDRIVE_REGION: us-east-1
+        IDRIVE_ENDPOINT: https://s3.us-east-1.idrivee2.com
+        IDRIVE_ACCESS_KEY: test-key
+        IDRIVE_SECRET_KEY: test-secret
+
+    - name: Upload coverage report
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: coverage-report
+        path: coverage/
+        retention-days: 14

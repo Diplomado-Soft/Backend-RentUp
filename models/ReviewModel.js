@@ -2,6 +2,21 @@ const db = require('../config/db');
 
 class Review {
   /**
+   * Verificar si un usuario ya tiene una reseña para un inmueble
+   */
+  static async userHasReviewForProperty(reviewer_id, property_id) {
+    try {
+      const [reviews] = await db.execute(
+        `SELECT review_id FROM reviews WHERE reviewer_id = ? AND property_id = ?`,
+        [reviewer_id, property_id]
+      );
+      return reviews.length > 0;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  /**
    * Crear una nueva reseña
    */
   static async createReview({ reviewer_id, property_id, rating, comment, verified_booking = false }) {
@@ -12,6 +27,11 @@ class Review {
 
       if (rating < 1 || rating > 5) {
         throw new Error('El rating debe estar entre 1 y 5');
+      }
+
+      const existingReview = await this.userHasReviewForProperty(reviewer_id, property_id);
+      if (existingReview) {
+        throw new Error('Ya has dejado una reseña para este inmueble');
       }
 
       const [result] = await db.execute(
