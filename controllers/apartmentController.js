@@ -6,10 +6,17 @@ const Apartment = require('../models/ApartmentModel');
  */
 exports.addApartment = async (req, res) => {
     try {
+        console.log('🔍 DEBUG addApartment - Inicio');
+        console.log('🔍 req.user:', req.user);
+        console.log('🔍 req.body:', req.body);
+        console.log('🔍 req.files:', req.files?.length || 0, 'archivos');
+        console.log('🔍 req.processedFiles:', req.processedFiles?.length || 0, 'procesados');
+        
         // Obtener ID del usuario autenticado desde el token
         const userId = req.user?.id || req.user?.user_id;
         
         if (!userId) {
+            console.log('❌ Usuario no autenticado');
             return res.status(401).json({
                 error: 'Usuario no autenticado. No se pudo obtener el ID del usuario.'
             });

@@ -7,7 +7,7 @@ require('dotenv').config();
 // Configuración de almacenamiento EN MEMORIA (no local)
 const storage = multer.memoryStorage();
 
-// Tipos IMAGENES permitidos
+// Tipos MIME permitidos
 const defaultMimes = ['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml'];
 const allowedMimes = new Set(
     process.env.ALLOWED_MIMES
@@ -15,13 +15,14 @@ const allowedMimes = new Set(
         : defaultMimes
 );
 
-//multer
+
 const fileFilter = (req, file, cb) => {
     if (!allowedMimes.has(file.mimetype)) {
         return cb(new Error('Tipo de archivo no permitido'), false);
     }
     cb(null, true);
 };
+
 exports.upload = multer({
     storage,
     fileFilter,
@@ -31,8 +32,6 @@ exports.upload = multer({
     }
 });
 
-
-//Procesar
 exports.validateFiles = async (req, res, next) => {
     if (!req.files?.length) return next();
     
@@ -47,15 +46,13 @@ exports.validateFiles = async (req, res, next) => {
         
         for (const file of req.files) {
             try {
-                const type = await fileType.fileTypeFromBuffer(file.buffer);
-                
-                // Validación de tipo real
-                if (!type || !allowedMimes.has(type.mime)) {
+                // Validación de tipo real usando el mimetype de multer
+                if (!allowedMimes.has(file.mimetype)) {
                     throw new Error(`Tipo de archivo no permitido: ${file.originalname}`);
                 }
 
                 // Procesar imágenes
-                if (type.mime.startsWith('image/')) {
+                if (file.mimetype.startsWith('image/')) {
                     const processedBuffer = await sharp(file.buffer)
                         .resize({
                             width: 1920,
@@ -85,8 +82,7 @@ exports.validateFiles = async (req, res, next) => {
                         expires_at: uploadResult.expiresAt,
                         fileName: file.originalname
                     });
-
-                    //
+                    
                     console.log('✅ Imagen procesada y subida a IDrive e2:', {
                         filename: file.originalname,
                         s3_key: uploadResult.key

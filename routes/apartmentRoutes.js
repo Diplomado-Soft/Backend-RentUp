@@ -14,8 +14,21 @@ router.post('/uploadImage/:id_apt',
 
 router.post('/addApartment', 
     authMiddleware,
+    (req, res, next) => {
+        console.log('🔍 DEBUG Route - Body:', req.body);
+        console.log('🔍 DEBUG Route - Files:', req.files?.length || 0);
+        next();
+    },
     upload.array('images'),
+    (req, res, next) => {
+        console.log('🔍 DEBUG After upload - Files:', req.files?.length || 0);
+        next();
+    },
     validateFiles,
+    (req, res, next) => {
+        console.log('🔍 DEBUG After validateFiles - processedFiles:', req.processedFiles?.length || 0);
+        next();
+    },
     ApartmentController.addApartment
 );
 
