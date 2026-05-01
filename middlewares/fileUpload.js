@@ -1,5 +1,4 @@
 const multer = require('multer');
-const fileType = require('file-type');
 const sharp = require('sharp');
 const idriveService = require('../utils/idriveService');
 require('dotenv').config();
@@ -7,7 +6,7 @@ require('dotenv').config();
 // Configuración de almacenamiento EN MEMORIA (no local)
 const storage = multer.memoryStorage();
 
-// Tipos IMAGENES permitidos
+// Tipos MIME permitidos
 const defaultMimes = ['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml'];
 const allowedMimes = new Set(
     process.env.ALLOWED_MIMES
@@ -15,13 +14,14 @@ const allowedMimes = new Set(
         : defaultMimes
 );
 
-//multer
+// Filtro de multer
 const fileFilter = (req, file, cb) => {
     if (!allowedMimes.has(file.mimetype)) {
         return cb(new Error('Tipo de archivo no permitido'), false);
     }
     cb(null, true);
 };
+
 exports.upload = multer({
     storage,
     fileFilter,
@@ -31,11 +31,10 @@ exports.upload = multer({
     }
 });
 
-
-//Procesar
+// Procesar y subir imágenes a IDrive e2
 exports.validateFiles = async (req, res, next) => {
     if (!req.files?.length) return next();
-    
+
     try {
         req.processedFiles = [];
         const userId = req.user?.id || req.user?.user_id;
@@ -44,18 +43,22 @@ exports.validateFiles = async (req, res, next) => {
         if (!userId) {
             throw new Error('Usuario no autenticado');
         }
-        
+
         for (const file of req.files) {
             try {
-                const type = await fileType.fileTypeFromBuffer(file.buffer);
-                
-                // Validación de tipo real
-                if (!type || !allowedMimes.has(type.mime)) {
+                // Validación de tipo real usando el mimetype de multer
+                if (!allowedMimes.has(file.mimetype)) {
                     throw new Error(`Tipo de archivo no permitido: ${file.originalname}`);
                 }
 
                 // Procesar imágenes
-                if (type.mime.startsWith('image/')) {
+                const detectedMime = file.mimetype;
+
+                if (!allowedMimes.has(detectedMime)) {
+                    throw new Error(`Tipo de archivo no permitido: ${file.originalname}`);
+                }
+
+                if (detectedMime.startsWith('image/')) {
                     const processedBuffer = await sharp(file.buffer)
                         .resize({
                             width: 1920,
@@ -63,7 +66,7 @@ exports.validateFiles = async (req, res, next) => {
                             fit: 'inside',
                             withoutEnlargement: true
                         })
-                        .webp({ 
+                        .webp({
                             quality: 80,
                             lossless: false,
                             alphaQuality: 100
@@ -77,16 +80,13 @@ exports.validateFiles = async (req, res, next) => {
                         apartmentId || 'temp',
                         file.originalname
                     );
-                    
-                    // Guardar información de la imagen procesada
+
                     req.processedFiles.push({
                         s3_key: uploadResult.key,
                         signed_url: uploadResult.signedUrl,
                         expires_at: uploadResult.expiresAt,
                         fileName: file.originalname
                     });
-
-                    //
                     console.log('✅ Imagen procesada y subida a IDrive e2:', {
                         filename: file.originalname,
                         s3_key: uploadResult.key
@@ -97,7 +97,7 @@ exports.validateFiles = async (req, res, next) => {
                 throw fileError;
             }
         }
-        
+
         console.log(`✅ ${req.processedFiles.length} archivo(s) procesado(s) y subido(s) a IDrive e2`);
         next();
     } catch (error) {
