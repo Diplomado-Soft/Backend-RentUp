@@ -1,6 +1,6 @@
 const jwt = require('jsonwebtoken');
 const db = require('../config/db');
-const { verifyFirebaseToken } = require('../utils/firebaseService');
+const { verifyFirebaseToken, revokeFirebaseToken } = require('../utils/firebaseService');
 
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
 
@@ -182,4 +182,26 @@ const githubCallback = (req, res) => {
     });
 };
 
-module.exports = { firebaseLogin, githubRedirect, githubCallback };
+/**
+ * POST /auth/logout
+ * Revoca los tokens de Firebase y limpia la sesión
+ */
+const logout = async (req, res) => {
+    try {
+        const { firebaseToken } = req.body;
+        
+        if (!firebaseToken) {
+            return res.status(400).json({ error: 'Firebase token is required' });
+        }
+
+        const decodedToken = await verifyFirebaseToken(firebaseToken);
+        await revokeFirebaseToken(decodedToken.uid);
+
+        res.json({ success: true, message: 'Logout successful. Tokens revoked.' });
+    } catch (error) {
+        console.error('Error in logout:', error.message);
+        res.status(500).json({ error: 'Logout failed', message: error.message });
+    }
+};
+
+module.exports = { firebaseLogin, githubRedirect, githubCallback, logout };
