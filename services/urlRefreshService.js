@@ -1,60 +1,145 @@
 const cron = require('node-cron');
-const { refreshAllUrls, getSignedUrl } = require('../utils/idriveService');
+const db = require('../config/db');
+const idriveService = require('../utils/idriveService');
 
-let refreshJob = null;
-
-function startUrlRefreshService() {
-    const intervalMinutes = parseInt(process.env.URL_REFRESH_INTERVAL_MINUTES) || 60;
+/**
+ * Job de cron para renovar URLs expiradas de imágenes
+ * Corre cada 6 horas
+ */
+const startUrlRefreshService = () => {
+    console.log('🔄 Iniciando servicio de renovación de URLs...');
     
-    refreshJob = cron.schedule(`*/${intervalMinutes} * * * *`, async () => {
+    // Ejecutar cada 6 horas
+    const job = cron.schedule('0 */6 * * *', async () => {
+        console.log('⏰ Ejecutando job de renovación de URLs...');
         try {
-            console.log('🔄 [UrlRefresh] Renovando URLs...');
-            await refreshAllUrls();
-            console.log('✅ [UrlRefresh] URLs renovadas');
-        } catch (err) {
-            console.error('❌ [UrlRefresh] Error:', err.message);
+            await refreshExpiredUrls();
+        } catch (error) {
+            console.error('❌ Error en job de renovación de URLs:', error.message);
         }
     });
-    
-    console.log(`✅ [UrlRefresh]Servicio iniciado cada ${intervalMinutes} minutos`);
-}
 
-function stopUrlRefreshService() {
-    if (refreshJob) {
-        refreshJob.stop();
-        refreshJob = null;
-    }
-}
+    // También ejecutar al iniciar el servidor
+    refreshExpiredUrls().catch(error => {
+        console.error('❌ Error al renovar URLs al iniciar:', error.message);
+    });
 
-async function getValidSignedUrl(imageId) {
+    return job;
+};
+
+/**
+ * Renovar todas las URLs expiradas
+ */
+const refreshExpiredUrls = async () => {
+    const connection = await db.getConnection();
     try {
-        // Obtener la key de la imagen desde la BD
-        const db = require('../config/db');
-        const [images] = await db.query(
-            'SELECT s3_key FROM apartment_images WHERE id_image = ?',
-            [imageId]
-        );
-        
+        // Obtener todas las imágenes con URLs cercanas a expirar
+        const [images] = await connection.query(`
+            SELECT 
+                id_image,
+                id_apt,
+                s3_key,
+                signed_url,
+                expires_at
+            FROM apartment_images
+            WHERE expires_at IS NOT NULL 
+            AND expires_at < DATE_ADD(NOW(), INTERVAL 1 HOUR)
+        `);
+
+        if (!images || images.length === 0) {
+            console.log('✅ Ninguna URL requiere renovación en este momento');
+            return;
+        }
+
+        console.log(`🔄 Renovando ${images.length} URL(s) expirada(s)...`);
+
+        let renovatedCount = 0;
+        let errorCount = 0;
+
+        for (const image of images) {
+            try {
+                // Generar nueva URL firmada
+                const { signedUrl, expiresAt } = await idriveService.getSignedUrl(image.s3_key);
+
+                // Actualizar en la BD
+                await connection.query(`
+                    UPDATE apartment_images
+                    SET signed_url = ?,
+                        expires_at = ?,
+                        updated_at = NOW()
+                    WHERE id_image = ?
+                `, [signedUrl, expiresAt, image.id_image]);
+
+                renovatedCount++;
+                console.log(`✅ URL renovada para imagen ${image.id_image}`);
+            } catch (error) {
+                errorCount++;
+                console.error(`❌ Error renovando URL para imagen ${image.id_image}:`, error.message);
+            }
+        }
+
+        console.log(`📊 Resumen: ${renovatedCount} renovadas, ${errorCount} errores`);
+    } catch (error) {
+        console.error('❌ Error en refreshExpiredUrls:', error.message);
+        throw error;
+    } finally {
+        connection.release();
+    }
+};
+
+/**
+ * Obtener URL firmada válida para una imagen
+ * Si está expirada, genera una nueva automáticamente
+ */
+const getValidSignedUrl = async (imageId) => {
+    const connection = await db.getConnection();
+    try {
+        // Obtener imagen actual
+        const [images] = await connection.query(`
+            SELECT id_image, s3_key, signed_url, expires_at
+            FROM apartment_images
+            WHERE id_image = ?
+        `, [imageId]);
+
         if (!images || images.length === 0) {
             throw new Error('Imagen no encontrada');
         }
-        
-        const { s3_key } = images[0];
-        
-        // Generar nueva URL firmada
-        const urlData = await getSignedUrl(s3_key);
-        
-        // Actualizar en BD
-        await db.query(
-            'UPDATE apartment_images SET signed_url = ?, expires_at = ? WHERE id_image = ?',
-            [urlData.signedUrl, urlData.expiresAt, imageId]
-        );
-        
-        return { signedUrl: urlData.signedUrl, expiresAt: urlData.expiresAt };
-    } catch (error) {
-        console.error('Error processing image:', error.message);
-        throw error;
-    }
-}
 
-module.exports = { startUrlRefreshService, stopUrlRefreshService, getValidSignedUrl };
+        const image = images[0];
+
+        // Verificar si la URL está expirada
+        if (idriveService.isUrlExpired(image.expires_at)) {
+            console.log(`🔄 URL expirada, generando nueva para imagen ${imageId}...`);
+            
+            const { signedUrl, expiresAt } = await idriveService.getSignedUrl(image.s3_key);
+
+            // Actualizar en BD
+            await connection.query(`
+                UPDATE apartment_images
+                SET signed_url = ?,
+                    expires_at = ?,
+                    updated_at = NOW()
+                WHERE id_image = ?
+            `, [signedUrl, expiresAt, imageId]);
+
+            console.log(`✅ URL renovada para imagen ${imageId}`);
+            return { signedUrl, expiresAt };
+        }
+
+        return {
+            signedUrl: image.signed_url,
+            expiresAt: image.expires_at
+        };
+    } catch (error) {
+        console.error('❌ Error en getValidSignedUrl:', error.message);
+        throw error;
+    } finally {
+        connection.release();
+    }
+};
+
+module.exports = {
+    startUrlRefreshService,
+    refreshExpiredUrls,
+    getValidSignedUrl
+};
