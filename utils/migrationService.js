@@ -8,7 +8,7 @@ const fs   = require('fs').promises;
 const path = require('path');
 const db   = require('../config/db');
 
-const MIGRATIONS_DIR = path.resolve(__dirname, '..', '..', 'database', 'migrations');
+const MIGRATIONS_DIR = path.resolve(__dirname, '..', 'database', 'migrations');
 
 async function ensureMigrationsTable() {
     await db.execute(`
