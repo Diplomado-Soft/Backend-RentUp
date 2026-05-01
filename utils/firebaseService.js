@@ -19,5 +19,16 @@ const verifyFirebaseToken = async (idToken) => {
     }
 };
 
-module.exports = { verifyFirebaseToken };
+const revokeFirebaseToken = async (uid) => {
+    try {
+        await admin.auth().revokeRefreshTokens(uid);
+        console.log('Tokens revocados para UID:', uid);
+        return true;
+    } catch (error) {
+        console.error('Error revocando tokens:', error.message);
+        throw error;
+    }
+};
+
+module.exports = { verifyFirebaseToken, revokeFirebaseToken };
 
