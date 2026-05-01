@@ -1,5 +1,6 @@
-const { S3Client, PutObjectCommand, DeleteObjectCommand, HeadBucketCommand , GetObjectCommand} = require('@aws-sdk/client-s3');
+const { S3Client, PutObjectCommand, DeleteObjectCommand, HeadBucketCommand } = require('@aws-sdk/client-s3');
 const { getSignedUrl: generateSignedUrl } = require('@aws-sdk/s3-request-presigner');
+const { GetObjectCommand } = require('@aws-sdk/client-s3');
 require('dotenv').config();
 
 // Configuración de IDrive e2 (compatible con S3)
@@ -42,7 +43,7 @@ exports.uploadImage = async (fileBuffer, userId, apartmentId, originalName) => {
         });
 
         await s3Client.send(uploadCommand);
-        console.log(`Imagen subida a IDrive e2: ${key}`);
+        console.log(`✅ Imagen subida a IDrive e2: ${key}`);
 
         // Generar URL firmada
         const getCommand = new GetObjectCommand({
@@ -62,7 +63,7 @@ exports.uploadImage = async (fileBuffer, userId, apartmentId, originalName) => {
             expiresAt
         };
     } catch (error) {
-        console.error('Error al subir imagen a IDrive e2:', error.message);
+        console.error('❌ Error al subir imagen a IDrive e2:', error.message);
         throw new Error(`Error al subir imagen: ${error.message}`);
     }
 };
@@ -85,14 +86,14 @@ exports.getSignedUrl = async (key) => {
 
         const expiresAt = new Date(Date.now() + URL_EXPIRATION * 1000);
 
-        console.log(`URL firmada generada para: ${key}`);
+        console.log(`✅ URL firmada generada para: ${key}`);
 
         return {
             signedUrl,
             expiresAt
         };
     } catch (error) {
-        console.error('Error al generar URL firmada:', error.message);
+        console.error('❌ Error al generar URL firmada:', error.message);
         throw new Error(`Error al generar URL: ${error.message}`);
     }
 };
@@ -110,9 +111,9 @@ exports.deleteImage = async (key) => {
 
         await s3Client.send(deleteCommand);
 
-        console.log(`Imagen eliminada de IDrive e2: ${key}`);
+        console.log(`✅ Imagen eliminada de IDrive e2: ${key}`);
     } catch (error) {
-        console.error('Error al eliminar imagen de IDrive e2:', error.message);
+        console.error('❌ Error al eliminar imagen de IDrive e2:', error.message);
         throw new Error(`Error al eliminar imagen: ${error.message}`);
     }
 };
@@ -138,63 +139,10 @@ exports.testConnection = async () => {
             Bucket: BUCKET_NAME 
         });
         await s3Client.send(headCommand);
-        console.log('Conexión a IDrive e2 establecida correctamente');
+        console.log('✅ Conexión a IDrive e2 establecida correctamente');
         return true;
     } catch (error) {
-        console.error('Error al conectar a IDrive e2:', error.message);
+        console.error('❌ Error al conectar a IDrive e2:', error.message);
         return false;
-    }
-};
-
-/**
- * Renovar todas las URLs próximas a expirar
- * Busca imágenes en la base de datos y renueva sus URLs
- */
-exports.refreshAllUrls = async () => {
-    const db = require('../config/db');
-    try {
-        console.log('[RefreshAll] Buscando imágenes próximas a expirar...');
-        
-        // Buscar imágenes que ya expiraron o expiran en menos de 24 horas
-        const [images] = await db.query(
-            `SELECT id_image, s3_key, expires_at 
-             FROM apartment_images 
-             WHERE expires_at IS NOT NULL 
-             AND expires_at <= DATE_ADD(NOW(), INTERVAL 24 HOUR)`
-        );
-        
-        if (!images || images.length === 0) {
-            console.log('[RefreshAll] No hay imágenes por renovar');
-            return { renewed: 0 };
-        }
-        
-        console.log(`[RefreshAll] ${images.length} imágenes encontradas para renovar`);
-        
-        let renewed = 0;
-        for (const img of images) {
-            try {
-                // Generar nueva URL firmada
-                const newData = await exports.getSignedUrl(img.s3_key);
-                
-                // Actualizar en la base de datos
-                await db.query(
-                    `UPDATE apartment_images 
-                     SET signed_url = ?, expires_at = ? 
-                     WHERE id_image = ?`,
-                    [newData.signedUrl, newData.expiresAt, img.id_image]
-                );
-                
-                renewed++;
-            } catch (err) {
-                console.error(`Error renovando imagen ${img.id_image}:`, err.message);
-            }
-        }
-        
-        console.log(`[RefreshAll] ${renewed} URLs renovadas`);
-        return { renewed };
-        
-    } catch (error) {
-        console.error('[RefreshAll] Error:', error.message);
-        throw error;
     }
 };
