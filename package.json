@@ -3,11 +3,11 @@
   "version": "1.0.0",
   "description": "Lógica del sistema de gestión de viviendas para renta",
   "main": "index.js",
-  "scripts": {
+"scripts": {
     "start": "nodemon index.js",
     "test": "jest --verbose --coverage",
-    "test:unit": "jest --testPathPattern=unit --verbose",
-    "test:integration": "jest --testPathPattern=integration --verbose",
+    "test:unit": "jest unit --verbose",
+    "test:integration": "jest integration --verbose",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage --coverageReporters=text-html"
   },
