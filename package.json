@@ -33,7 +33,11 @@
     "exceljs": "^4.4.0",
     "express": "^5.2.1",
     "express-validator": "^7.3.2",
+<<<<<<< HEAD
     "file-type": "^12.4.2",
+=======
+    "file-type": "^16.5.4",
+>>>>>>> ca98b90 (fix: ajuste final en la lógica de controladores)
     "firebase-admin": "^13.8.0",
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.3",
