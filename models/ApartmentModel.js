@@ -631,11 +631,7 @@ class Apartment {
                 u.user_lastname,
                 u.user_email,
                 u.user_phonenumber,
-<<<<<<< HEAD
-                u.whatsapp,
-=======
                 IF(u.phone_confirmed = 1, u.whatsapp, NULL) AS whatsapp,
->>>>>>> ca98b90 (fix: ajuste final en la lógica de controladores)
                 GROUP_CONCAT(CONCAT(ai.id_image, ':', ai.s3_key)) AS image_data
             FROM apartments AS a
             LEFT JOIN barrio AS b ON a.id_barrio = b.id_barrio

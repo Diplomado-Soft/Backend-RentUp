@@ -5,7 +5,6 @@ const Apartment = require('../models/ApartmentModel');
  */
 exports.addApartment = async (req, res) => {
     try {
-<<<<<<< HEAD
         console.log('🔍 DEBUG addApartment - Inicio');
         console.log('🔍 req.user:', req.user);
         console.log('🔍 req.body:', req.body);
@@ -13,9 +12,7 @@ exports.addApartment = async (req, res) => {
         console.log('🔍 req.processedFiles:', req.processedFiles?.length || 0, 'procesados');
         
         // Obtener ID del usuario autenticado desde el token
-=======
         // ✅ userId declarado UNA SOLA VEZ
->>>>>>> ca98b90 (fix: ajuste final en la lógica de controladores)
         const userId = req.user?.id || req.user?.user_id;
 
         if (!userId) {

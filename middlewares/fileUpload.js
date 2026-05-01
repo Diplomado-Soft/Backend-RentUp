@@ -6,11 +6,7 @@ require('dotenv').config();
 // Configuración de almacenamiento EN MEMORIA (no local)
 const storage = multer.memoryStorage();
 
-<<<<<<< HEAD
 // Tipos MIME permitidos
-=======
-// Tipos de imágenes permitidos
->>>>>>> ca98b90 (fix: ajuste final en la lógica de controladores)
 const defaultMimes = ['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml'];
 const allowedMimes = new Set(
     process.env.ALLOWED_MIMES
@@ -18,11 +14,7 @@ const allowedMimes = new Set(
         : defaultMimes
 );
 
-<<<<<<< HEAD
-
-=======
 // Filtro de multer
->>>>>>> ca98b90 (fix: ajuste final en la lógica de controladores)
 const fileFilter = (req, file, cb) => {
     if (!allowedMimes.has(file.mimetype)) {
         return cb(new Error('Tipo de archivo no permitido'), false);
@@ -39,10 +31,7 @@ exports.upload = multer({
     }
 });
 
-<<<<<<< HEAD
-=======
 // Procesar y subir imágenes a IDrive e2
->>>>>>> ca98b90 (fix: ajuste final en la lógica de controladores)
 exports.validateFiles = async (req, res, next) => {
     if (!req.files?.length) return next();
 
@@ -57,16 +46,12 @@ exports.validateFiles = async (req, res, next) => {
 
         for (const file of req.files) {
             try {
-<<<<<<< HEAD
                 // Validación de tipo real usando el mimetype de multer
                 if (!allowedMimes.has(file.mimetype)) {
                     throw new Error(`Tipo de archivo no permitido: ${file.originalname}`);
                 }
 
                 // Procesar imágenes
-                if (file.mimetype.startsWith('image/')) {
-=======
-                // Usar el mimetype declarado por multer (ya fue filtrado en fileFilter)
                 const detectedMime = file.mimetype;
 
                 if (!allowedMimes.has(detectedMime)) {
@@ -74,7 +59,6 @@ exports.validateFiles = async (req, res, next) => {
                 }
 
                 if (detectedMime.startsWith('image/')) {
->>>>>>> ca98b90 (fix: ajuste final en la lógica de controladores)
                     const processedBuffer = await sharp(file.buffer)
                         .resize({
                             width: 1920,
@@ -103,11 +87,6 @@ exports.validateFiles = async (req, res, next) => {
                         expires_at: uploadResult.expiresAt,
                         fileName: file.originalname
                     });
-<<<<<<< HEAD
-                    
-=======
-
->>>>>>> ca98b90 (fix: ajuste final en la lógica de controladores)
                     console.log('✅ Imagen procesada y subida a IDrive e2:', {
                         filename: file.originalname,
                         s3_key: uploadResult.key
