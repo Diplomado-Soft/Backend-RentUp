@@ -13,46 +13,48 @@ describe('Integration Tests - Auth Routes', () => {
   });
 
   describe('POST /auth/login', () => {
-    it('should return login placeholder response', async () => {
+    it('should require Firebase token', async () => {
       const res = await request(app)
         .post('/auth/login')
-        .send({ email: 'test@test.com', password: 'password' });
+        .send({ email: 'test@test.com' });
 
-      expect(res.status).toBe(200);
-      expect(res.body).toHaveProperty('message', 'Login placeholder');
+      // Should fail without Firebase token
+      expect(res.status).toBe(400);
+      expect(res.body).toHaveProperty('error');
     });
   });
 
   describe('POST /auth/register', () => {
-    it('should return register placeholder response', async () => {
+    it('should return not implemented', async () => {
       const res = await request(app)
         .post('/auth/register')
         .send({ email: 'test@test.com' });
 
-      expect(res.status).toBe(200);
-      expect(res.body).toHaveProperty('message', 'Register placeholder');
+      expect(res.status).toBe(501);
+      expect(res.body).toHaveProperty('error');
     });
   });
 
   describe('POST /auth/refresh', () => {
-    it('should return refresh placeholder response', async () => {
+    it('should require refresh token', async () => {
       const res = await request(app)
         .post('/auth/refresh')
-        .send({ refreshToken: 'token' });
+        .send({});
 
-      expect(res.status).toBe(200);
-      expect(res.body).toHaveProperty('message', 'Refresh placeholder');
+      expect(res.status).toBe(401);
+      expect(res.body).toHaveProperty('error');
     });
   });
 
   describe('POST /auth/google', () => {
-    it('should return google placeholder response', async () => {
+    it('should require Firebase token', async () => {
       const res = await request(app)
         .post('/auth/google')
         .send({ token: 'google-token' });
 
-      expect(res.status).toBe(200);
-      expect(res.body).toHaveProperty('message', 'Google placeholder');
+      // Should fail without valid Firebase token
+      expect(res.status).toBe(400);
+      expect(res.body).toHaveProperty('error');
     });
   });
 });
