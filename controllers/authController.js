@@ -77,6 +77,12 @@ const firebaseLogin = async (req, res) => {
             userData = users[0];
             console.log(`👤 [${requestId}] Existing user found: ID=${userId}`);
 
+            // Verificar si la cuenta está desactivada y reactivarla
+        if (users[0].is_active === false || users[0].is_active === 0) {
+            console.log(`🔄 [${requestId}] Reactivando cuenta...`);
+            await db.query('UPDATE users SET is_active = TRUE WHERE user_id = ?', [userId]);
+            }
+
             // Actualizar Firebase UID si no lo tiene
 if (!userData.user_google_id || !userData.profile_image) {
                 console.log(`🔄 [${requestId}] Updating Firebase UID & profile...`);
@@ -85,6 +91,9 @@ if (!userData.user_google_id || !userData.profile_image) {
                     [firebaseUid, photoURL || decodedToken.picture || null, userId]
                 );
             }
+            // AGREGAR: Verificar si tiene rol asignado
+            const [rolCheck] = await db.query('SELECT rol_id FROM user_rol WHERE user_id = ?', [userId]);
+            const hasRol = rolCheck.length > 0;
         } else {
             // Usuario nuevo: crear
             console.log(`✨ [${requestId}] Creating new user:`, firebaseEmail);
@@ -143,6 +152,7 @@ let userPayload = {
             success: true,
             user: userPayload,
             token: appToken,
+            requiresRoleSelection: !hasRol
         });
 
     } catch (error) {

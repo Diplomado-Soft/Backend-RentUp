@@ -155,8 +155,8 @@ exports.login = async (req, res) => {
 
         // Buscar usuario
         const user = await User.findByEmail(email);
-        if (!user) {
-            return res.status(401).json({ error: 'Usuario no encontrado' });
+        if (user && user.is_active === FALSE) {
+            return res.status(403).json({ error: 'Usuario no encontrado o cuenta eliminada' });
         }
 
         // Verificar si el usuario usa Google OAuth
@@ -292,8 +292,8 @@ exports.deleteAccount = async (req, res) => {
             [userId]
         );
 
-        await connection.query(
-            'DELETE FROM users WHERE user_id = ?',
+        await connection.query( // actualiza el estado de la cuenta como inactiva
+            'UPDATE users SET is_active = FALSE WHERE user_id = ?',
             [userId]
         );
 
