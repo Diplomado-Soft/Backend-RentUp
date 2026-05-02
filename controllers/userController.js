@@ -155,7 +155,7 @@ exports.login = async (req, res) => {
 
         // Buscar usuario
         const user = await User.findByEmail(email);
-        if (user && user.is_active === FALSE) {
+        if (user && user.is_active === false) {
             return res.status(403).json({ error: 'Usuario no encontrado o cuenta eliminada' });
         }
 

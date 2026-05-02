@@ -218,24 +218,6 @@ function isPortInUse(port) {
             throw new Error(`Puerto ${HTTP_PORT} en uso. Detén otros servidores primero.`);
         }
 
-        // 2. Importar base de datos
-        try {
-            console.log('🔄 Importando base de datos...');
-            await importDatabase();
-            console.log('✅ Base de datos importada correctamente');
-        } catch (dbErr) {
-            console.warn('⚠️ Advertencia importando base de datos:', dbErr.message);
-            console.log('🚀 Continuando con el inicio del servidor...');
-        }
-
-        // 2b. Ejecutar migraciones pendientes
-        try {
-            console.log('🔄 Verificando migraciones pendientes...');
-            await runMigrations();
-        } catch (migErr) {
-            console.warn('⚠️ Advertencia ejecutando migraciones:', migErr.message);
-        }
-
         // 2c. Inicializar modelos
         try {
             console.log('🔄 Inicializando modelos...');

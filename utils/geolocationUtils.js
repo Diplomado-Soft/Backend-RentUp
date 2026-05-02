@@ -1,13 +1,20 @@
 /**
  * Utility functions for geolocation calculations
- * Sprint 4 - T-23: Uniputumayo reference coordinates and search radius
+ * Sprint #24: Uniputumayo reference coordinates and search radius
+ * 
+ * Provides Haversine formula for distance calculations,
+ * radius checking, and apartment distance sorting.
  */
 
+const { LOCATION_CONFIG } = require('../config/locationConfig');
+
 const UNIPUTUMAYO_CONFIG = {
-    name: 'uniputumayo',
-    latitude: 3.341300,
-    longitude: -76.529400,
-    radiusKm: 2.00
+    name: LOCATION_CONFIG.UNIPUTUMAYO.name,
+    latitude: LOCATION_CONFIG.UNIPUTUMAYO.latitude,
+    longitude: LOCATION_CONFIG.UNIPUTUMAYO.longitude,
+    radiusKm: LOCATION_CONFIG.DEFAULT_RADIUS_KM,
+    verified: LOCATION_CONFIG.VERIFICATION.coordinatesVerified,
+    verificationDate: LOCATION_CONFIG.VERIFICATION.verificationDate
 };
 
 function getUniputumayoConfig() {

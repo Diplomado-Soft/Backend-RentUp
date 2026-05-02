@@ -70,6 +70,7 @@ const firebaseLogin = async (req, res) => {
 
         let userId;
         let userData;
+        let hasRol = false;
 
         if (users.length > 0) {
             // Usuario existente
@@ -78,26 +79,27 @@ const firebaseLogin = async (req, res) => {
             console.log(`👤 [${requestId}] Existing user found: ID=${userId}`);
 
             // Verificar si la cuenta está desactivada y reactivarla
-        if (users[0].is_active === false || users[0].is_active === 0) {
-            console.log(`🔄 [${requestId}] Reactivando cuenta...`);
-            await db.query('UPDATE users SET is_active = TRUE WHERE user_id = ?', [userId]);
+            if (users[0].is_active === false || users[0].is_active === 0) {
+                console.log(`🔄 [${requestId}] Reactivando cuenta...`);
+                await db.query('UPDATE users SET is_active = TRUE WHERE user_id = ?', [userId]);
             }
 
             // Actualizar Firebase UID si no lo tiene
-if (!userData.user_google_id || !userData.profile_image) {
+            if (!userData.user_google_id || !userData.profile_image) {
                 console.log(`🔄 [${requestId}] Updating Firebase UID & profile...`);
                 await db.query(
                     'UPDATE users SET user_google_id = ?, profile_image = ? WHERE user_id = ?',
                     [firebaseUid, photoURL || decodedToken.picture || null, userId]
                 );
             }
-            // AGREGAR: Verificar si tiene rol asignado
+            
+            // Verificar si tiene rol asignado
             const [rolCheck] = await db.query('SELECT rol_id FROM user_rol WHERE user_id = ?', [userId]);
-            const hasRol = rolCheck.length > 0;
+            hasRol = rolCheck.length > 0;
         } else {
             // Usuario nuevo: crear
             console.log(`✨ [${requestId}] Creating new user:`, firebaseEmail);
-const [result] = await db.query(
+    const [result] = await db.query(
                 `INSERT INTO users (user_name, user_lastname, user_email, user_google_id, profile_image)
                  VALUES (?, ?, ?, ?, ?)`,
                 [nombre || firebaseEmail.split('@')[0], apellido || '', firebaseEmail, firebaseUid, photoURL || decodedToken.picture || null]
@@ -123,6 +125,7 @@ const [result] = await db.query(
                 [userId]
             );
             userData = users[0];
+            hasRol = true;
         }
 
         // 3. Generar JWT de la app (no el de Firebase)
@@ -134,7 +137,7 @@ const [result] = await db.query(
         );
 
         // 4. Devolver datos del usuario y token
-let userPayload = {
+    let userPayload = {
             id: userId,
             nombre: userData.user_name,
             apellido: userData.user_lastname,

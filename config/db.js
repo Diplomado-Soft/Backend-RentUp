@@ -3,7 +3,7 @@ require ('dotenv').config();
 
 const pool = mysql.createPool({
     host: process.env.DB_HOST,
-    port: process.env.DB_PORT || 3308,
+    port: parseInt(process.env.DB_PORT) || 3308,
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
@@ -12,20 +12,22 @@ const pool = mysql.createPool({
     queueLimit: 0,
     connectTimeout: 30000,
     enableKeepAlive: true,
+    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: true } : false
 });
 
-async function testConnection() {
-    try {
-        const connection = await pool.getConnection();
-        console.log(' ✅ Conexión a la base de datos establecida correctamente');
-        connection.release();
-    } catch (err) {
-        console.error(' ❌ Error al conectar a la base de datos:', err);
+// Solo probar conexión si no es entorno de test
+if (process.env.NODE_ENV !== 'test') {
+    async function testConnection() {
+        try {
+            const connection = await pool.getConnection();
+            console.log(' ✅ Conexión a la base de datos establecida correctamente');
+            connection.release();
+        } catch (err) {
+            console.error(' ❌ Error al conectar a la base de datos:', err);
+        }
     }
+    testConnection();
 }
-testConnection();
 
 module.exports = pool;
-
-console.log(" Base de datos iniciada - debug temporal");
 

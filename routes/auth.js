@@ -5,6 +5,13 @@ const { firebaseLogin, githubRedirect, githubCallback } = require('../controller
 
 // Firebase Google Sign-In: recibe Firebase token y devuelve JWT de la app
 router.post('/firebase-login', firebaseLogin);
+router.post('/login', firebaseLogin);
+router.post('/google', firebaseLogin);
+
+// Register: not implemented
+router.post('/register', (req, res) => {
+    res.status(501).json({ error: 'Not implemented' });
+});
 
 // GitHub OAuth: deprecated (kept for backwards compatibility)
 router.get('/github', githubRedirect);
@@ -12,6 +19,22 @@ router.get('/github/callback', githubCallback);
 
 // Renovar access token con refresh token
 router.post('/refresh-token', (req, res) => {
+    const { refreshToken } = req.body;
+    if (!refreshToken) {
+        return res.status(401).json({ error: 'Token de refresco no proporcionado' });
+    }
+    try {
+        const decoded = verifyToken(refreshToken, process.env.JWT_REFRESH_SECRET);
+        const newAccesToken = generateAccessToken({ id: decoded.id, role: decoded.role });
+        res.json({ accessToken: newAccesToken });
+    } catch (error) {
+        console.error('Error refrescando token:', error);
+        res.status(401).json({ error: 'Token de refresco inválido o expirado' });
+    }
+});
+
+// Alias para /refresh
+router.post('/refresh', (req, res) => {
     const { refreshToken } = req.body;
     if (!refreshToken) {
         return res.status(401).json({ error: 'Token de refresco no proporcionado' });
