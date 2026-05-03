@@ -11,18 +11,19 @@ const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
 const firebaseLogin = async (req, res) => {
     const requestId = Math.random().toString(36).substring(7);
     try {
-        const { firebaseToken, rolId = 1, email, nombre, apellido, photoURL } = req.body;
+        const { firebaseToken, rolId, email, nombre, apellido, photoURL } = req.body;
 
         console.log(`\n📝 [${requestId}] Firebase login request:`, {
             hasToken: !!firebaseToken,
+            hasRolId: !rolId,
             tokenLength: firebaseToken ? firebaseToken.length : 0,
             email,
-            rolId
+            isFirstLogin: !rolId,
         });
 
         if (!firebaseToken) {
             console.log(`❌ [${requestId}] Missing Firebase token`);
-            return res.status(400).json({ error: 'Firebase token is required' });
+            return res.status(400).json({ error: 'Token requerido' });
         }
 
         // 1. Verificar Firebase token
@@ -96,45 +97,56 @@ const firebaseLogin = async (req, res) => {
             // Verificar si tiene rol asignado
             const [rolCheck] = await db.query('SELECT rol_id FROM user_rol WHERE user_id = ?', [userId]);
             hasRol = rolCheck.length > 0;
+           // if(!hasRol) { console.log(`[${requestId}] Cuenta reactivada sin rol asignado`)}
         } else {
             // Usuario nuevo: crear
             console.log(`✨ [${requestId}] Creating new user:`, firebaseEmail);
     const [result] = await db.query(
-                `INSERT INTO users (user_name, user_lastname, user_email, user_google_id, profile_image)
-                 VALUES (?, ?, ?, ?, ?)`,
+                `INSERT INTO users (user_name, user_lastname, user_email, user_google_id, profile_image, is_active)
+                 VALUES (?, ?, ?, ?, ?, TRUE)`,
                 [nombre || firebaseEmail.split('@')[0], apellido || '', firebaseEmail, firebaseUid, photoURL || decodedToken.picture || null]
             );
-            
+
+                        
             userId = result.insertId;
             console.log(`✅ [${requestId}] New user created: ID=${userId}`);
 
-            // Asignar rol
-            await db.query(
-                `INSERT INTO user_rol (user_id, rol_id, start_date) VALUES (?, ?, NOW())`,
-                [userId, rolId]
-            );
+            if (rolId) {
+                await db.query(
+                    `INSERT INTO user_rol (user_id, rol_id, start_date) VALUES (?, ?, NOW())`,
+                    [userId, rolId]
+                );
+                hasRol = true;
+            }
+
+
 
             // Obtener datos del usuario creado
             [users] = await db.query(
                 `SELECT U.user_id, U.user_name, U.user_lastname, U.user_email,
-                        U.user_phonenumber, U.whatsapp, UR.rol_id
+                        U.user_phonenumber, U.whatsapp, U.profile_image, UR.rol_id
                  FROM users AS U
                  LEFT JOIN user_rol AS UR ON U.user_id = UR.user_id
-                 WHERE U.user_id = ?
-                 LIMIT 1`,
+                 WHERE U.user_id = ?`,
                 [userId]
             );
             userData = users[0];
-            hasRol = true;
         }
 
         // 3. Generar JWT de la app (no el de Firebase)
-        console.log(`🔑 [${requestId}] Generating app JWT...`);
-        const appToken = jwt.sign(
-            { id: userId, rol: userData.rol_id || rolId },
-            process.env.JWT_SECRET,
-            { expiresIn: process.env.JWT_EXPIRES || '24h' }
-        );
+        if(hasRol) {
+            console.log(`🔑 [${requestId}] Generating app JWT...`);
+            const appToken = jwt.sign(
+                { id: userId, rol: userData.rol_id || rolId },
+                process.env.JWT_SECRET,
+                { expiresIn: process.env.JWT_EXPIRES || '24h' }
+            );
+            requiresRoleSelection = false;
+        } else {
+            console.log(`[${requestId}] First Login - require role selection`);
+            appToken = null;
+            requiresRoleSelection = true;
+        }
 
         // 4. Devolver datos del usuario y token
     let userPayload = {
@@ -145,17 +157,18 @@ const firebaseLogin = async (req, res) => {
             profile_image: userData.profile_image,
             telefono: userData.user_phonenumber || null,
             whatsapp: userData.whatsapp || null,
-            rol: userData.rol_id || rolId,
-            token: appToken,
+            photoURL: userData.profile_image,
+            rol: userData.rol_id || null,
+            //token: appToken,
         };
 
-        console.log(`✅ [${requestId}] Firebase login successful:`, { userId, email: userData.user_email });
+        console.log(`✅ [${requestId}] Firebase login successful:`, { userId, requiresRoleSelection, hasRol });
 
         res.json({
             success: true,
             user: userPayload,
             token: appToken,
-            requiresRoleSelection: !hasRol
+            requiresRoleSelection
         });
 
     } catch (error) {
