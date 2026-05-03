@@ -114,6 +114,22 @@ class User {
             throw new Error('Error al buscar usuario por email');
         }
     }
+
+    static async deleteAccount(userId) {
+        const account = await db.query(
+            'DELETE FROM users WHERE user_id = ?',
+            [userId]
+        );
+        return account.affectedRows > 0;
+    }
+
+    static async deleteRolUser(userId){
+        await db.query(
+            'DELETE FROM user_rol WHERE user_id = ?',
+            [userId]
+        );
+        return true;
+    }
 }
 
 module.exports = User;

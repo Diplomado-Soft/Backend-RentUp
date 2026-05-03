@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const db = require('../config/db');
 const { verifyFirebaseToken, revokeFirebaseToken } = require('../utils/firebaseService');
+const { sendWelcomeEmail } = require('../utils/emailService');
 
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
 
@@ -101,6 +102,15 @@ const [result] = await db.query(
             await db.query(
                 `INSERT INTO user_rol (user_id, rol_id, start_date) VALUES (?, ?, NOW())`,
                 [userId, rolId]
+            );
+
+            // Enviar correo de bienvenida (no bloquea el registro si falla)
+            sendWelcomeEmail(
+                firebaseEmail,
+                nombre || firebaseEmail.split('@')[0],
+                apellido || ''
+            ).catch(err =>
+                console.error(`❌ [${requestId}] Error enviando correo de bienvenida:`, err.message || err)
             );
 
             // Obtener datos del usuario creado
