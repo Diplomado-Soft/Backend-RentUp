@@ -19,8 +19,8 @@ class UpdateContractDTO {
             errors.push('monthly_rent debe ser un número mayor a 0');
         }
 
-        if (this.status && !['active', 'terminated', 'expired'].includes(this.status)) {
-            errors.push('status debe ser: active, terminated o expired');
+        if (this.status && !['active', 'terminated', 'expired', 'pending'].includes(this.status)) {
+            errors.push('status debe ser: active, terminated, expired o pending');
         }
 
         return {

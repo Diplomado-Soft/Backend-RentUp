@@ -3,7 +3,7 @@ const db = require('../config/db');
 const { verifyFirebaseToken, revokeFirebaseToken } = require('../utils/firebaseService');
 const { sendWelcomeEmail } = require('../utils/emailService');
 
-const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
+const FRONT_END_URL = process.env.FRONT_END_URL || 'http://localhost:3000';
 
 /**
  * POST /auth/firebase-login
@@ -79,17 +79,17 @@ const firebaseLogin = async (req, res) => {
             console.log(`👤 [${requestId}] Existing user found: ID=${userId}`);
 
             // Actualizar Firebase UID si no lo tiene
-if (!userData.user_google_id || !userData.profile_image) {
-                console.log(`🔄 [${requestId}] Updating Firebase UID & profile...`);
-                await db.query(
-                    'UPDATE users SET user_google_id = ?, profile_image = ? WHERE user_id = ?',
-                    [firebaseUid, photoURL || decodedToken.picture || null, userId]
-                );
-            }
+        if (!userData.user_google_id || !userData.profile_image) {
+            console.log(`🔄 [${requestId}] Updating Firebase UID & profile...`);
+            await db.query(
+                'UPDATE users SET user_google_id = ?, profile_image = ? WHERE user_id = ?',
+                [firebaseUid, photoURL || decodedToken.picture || null, userId]
+            );
+        }
         } else {
             // Usuario nuevo: crear
             console.log(`✨ [${requestId}] Creating new user:`, firebaseEmail);
-const [result] = await db.query(
+        const [result] = await db.query(
                 `INSERT INTO users (user_name, user_lastname, user_email, user_google_id, profile_image)
                  VALUES (?, ?, ?, ?, ?)`,
                 [nombre || firebaseEmail.split('@')[0], apellido || '', firebaseEmail, firebaseUid, photoURL || decodedToken.picture || null]
@@ -97,13 +97,13 @@ const [result] = await db.query(
             
             userId = result.insertId;
             console.log(`✅ [${requestId}] New user created: ID=${userId}`);
-
+            
             // Asignar rol
             await db.query(
                 `INSERT INTO user_rol (user_id, rol_id, start_date) VALUES (?, ?, NOW())`,
                 [userId, rolId]
             );
-
+            
             // Enviar correo de bienvenida (no bloquea el registro si falla)
             sendWelcomeEmail(
                 firebaseEmail,
@@ -112,7 +112,7 @@ const [result] = await db.query(
             ).catch(err =>
                 console.error(`❌ [${requestId}] Error enviando correo de bienvenida:`, err.message || err)
             );
-
+            
             // Obtener datos del usuario creado
             [users] = await db.query(
                 `SELECT U.user_id, U.user_name, U.user_lastname, U.user_email,
@@ -135,7 +135,7 @@ const [result] = await db.query(
         );
 
         // 4. Devolver datos del usuario y token
-let userPayload = {
+    let userPayload = {
             id: userId,
             nombre: userData.user_name,
             apellido: userData.user_lastname,
