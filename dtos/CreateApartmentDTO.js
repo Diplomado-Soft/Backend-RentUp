@@ -1,18 +1,19 @@
 /**
  * CreateApartmentDTO - DTO para validación de creación de apartamento
+ * Campos deben coincidir con lo que espera ApartmentModel.addApartment()
  */
 class CreateApartmentDTO {
     constructor(data) {
         this.barrio = data.barrio?.trim();
-        this.direccion = data.direccion?.trim();
+        this.direccion = data.direccion?.trim() || data.direccion_apt?.trim();
         this.latitud = data.latitud ? parseFloat(data.latitud) : null;
         this.longitud = data.longitud ? parseFloat(data.longitud) : null;
-        this.info_add_apt = data.addInfo || data.info_add_apt;
+        this.addInfo = data.addInfo || data.info_add_apt;
         this.price = data.price ? parseFloat(data.price) : null;
         this.bedrooms = data.bedrooms ? parseInt(data.bedrooms) : null;
         this.bathrooms = data.bathrooms ? parseInt(data.bathrooms) : null;
         this.area_m2 = data.area_m2 ? parseInt(data.area_m2) : null;
-        this.userId = data.userId;
+        this.userId = data.userId || data.user_id;
     }
 
     validate() {
@@ -65,7 +66,7 @@ class CreateApartmentDTO {
             direccion: this.direccion,
             latitud: this.latitud,
             longitud: this.longitud,
-            addInfo: this.info_add_apt,
+            addInfo: this.addInfo,
             price: this.price,
             bedrooms: this.bedrooms,
             bathrooms: this.bathrooms,

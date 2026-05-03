@@ -1,42 +1,32 @@
 const Contract = require('../models/ContractModel');
 const db = require('../config/db');
 const { sendContractAgreementEmail } = require('../utils/emailService');
+const CreateContractDTO = require('../dtos/CreateContractDTO');
+const UpdateContractDTO = require('../dtos/UpdateContractDTO');
 
 exports.createContract = async (req, res) => {
     try {
         const userId = req.user?.id || req.user?.userId;
         console.log('User ID:', userId);
         console.log('Request body:', req.body);
-        
-        const {
-            id_apt,
-            tenant_id,
-            start_date,
-            end_date,
-            monthly_rent,
-            deposit_amount,
-            terms,
-            activate_immediately
-        } = req.body;
 
-        if (!id_apt || !tenant_id || !start_date || !end_date || !monthly_rent) {
+        // Usar CreateContractDTO para validación
+        const contractDTO = new CreateContractDTO({
+            ...req.body,
+            landlord_id: userId
+        });
+
+        const validation = contractDTO.validate();
+        if (!validation.isValid) {
             return res.status(400).json({
-                error: 'Todos los campos requeridos deben ser proporcionados',
-                details: { id_apt, tenant_id, start_date, end_date, monthly_rent }
+                error: 'Datos de contrato inválidos',
+                errors: validation.errors
             });
         }
 
-        const contract = await Contract.create({
-            id_apt: parseInt(id_apt),
-            tenant_id: parseInt(tenant_id),
-            landlord_id: userId,
-            start_date,
-            end_date,
-            monthly_rent: parseFloat(monthly_rent),
-            deposit_amount: deposit_amount ? parseFloat(deposit_amount) : null,
-            status: 'active',
-            terms
-        });
+        const dtoData = contractDTO.toDatabaseFormat();
+
+        const contract = await Contract.create(dtoData);
 
         // Obtener datos para el correo
         const [tenantData] = await db.query(
@@ -167,14 +157,24 @@ exports.getContractById = async (req, res) => {
 exports.updateContractStatus = async (req, res) => {
     try {
         const { agreement_id } = req.params;
-        const { status } = req.body;
 
-        const validStatuses = ['active', 'expired', 'terminated', 'pending'];
-        if (!validStatuses.includes(status)) {
-            return res.status(400).json({ error: 'Estado inválido' });
+        // Usar UpdateContractDTO para validación
+        const updateDTO = new UpdateContractDTO(req.body);
+        const validation = updateDTO.validate();
+        if (!validation.isValid) {
+            return res.status(400).json({
+                error: 'Datos de actualización inválidos',
+                details: validation.errors
+            });
         }
 
-        const result = await Contract.updateStatus(parseInt(agreement_id), status);
+        const dtoData = updateDTO.toDatabaseFormat();
+
+        if (!dtoData.status) {
+            return res.status(400).json({ error: 'Se requiere un estado válido' });
+        }
+
+        const result = await Contract.updateStatus(parseInt(agreement_id), dtoData.status);
 
         if (result.affectedRows === 0) {
             return res.status(404).json({ error: 'Contrato no encontrado' });

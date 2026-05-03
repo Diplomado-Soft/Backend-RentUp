@@ -1,4 +1,6 @@
 const NotificationModel = require('../models/NotificationModel');
+const CreateNotificationDTO = require('../dtos/CreateNotificationDTO');
+const NotificationDTO = require('../dtos/NotificationDTO');
 
 /**
  * GET /admin/notifications
@@ -16,7 +18,8 @@ exports.getNotifications = async (req, res) => {
         }
 
         const notifications = await NotificationModel.getForAdmin(user_id, 60);
-        res.json({ success: true, notifications });
+        const formattedNotifications = NotificationDTO.fromDatabaseList(notifications);
+        res.json({ success: true, notifications: formattedNotifications });
     } catch (error) {
         console.error('Error obteniendo notificaciones:', error);
         res.status(500).json({ error: 'Error al obtener notificaciones' });

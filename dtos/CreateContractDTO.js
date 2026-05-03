@@ -1,5 +1,6 @@
 /**
  * CreateContractDTO - DTO para validación de creación de contratos
+ * Coincide con los campos que espera ContractModel.create()
  */
 class CreateContractDTO {
     constructor(data) {
@@ -9,6 +10,8 @@ class CreateContractDTO {
         this.start_date = data.start_date;
         this.end_date = data.end_date;
         this.monthly_rent = parseFloat(data.monthly_rent);
+        this.deposit_amount = data.deposit_amount ? parseFloat(data.deposit_amount) : null;
+        this.terms = data.terms || null;
     }
 
     validate() {
@@ -34,7 +37,7 @@ class CreateContractDTO {
             errors.push('end_date debe ser una fecha válida');
         }
 
-        if (this.monthly_rent && (isNaN(this.monthly_rent) || this.monthly_rent <= 0)) {
+        if (!this.monthly_rent || isNaN(this.monthly_rent) || this.monthly_rent <= 0) {
             errors.push('monthly_rent debe ser un número mayor a 0');
         }
 
@@ -49,7 +52,7 @@ class CreateContractDTO {
     }
 
     toDatabaseFormat() {
-        return {
+        const data = {
             id_apt: this.id_apt,
             tenant_id: this.tenant_id,
             landlord_id: this.landlord_id,
@@ -57,6 +60,12 @@ class CreateContractDTO {
             end_date: this.end_date,
             monthly_rent: this.monthly_rent
         };
+        
+        // Campos adicionales que el modelo podría usar en el futuro
+        if (this.deposit_amount !== null) data.deposit_amount = this.deposit_amount;
+        if (this.terms) data.terms = this.terms;
+        
+        return data;
     }
 }
 

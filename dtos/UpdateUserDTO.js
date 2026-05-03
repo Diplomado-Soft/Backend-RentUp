@@ -1,5 +1,6 @@
 /**
  * UpdateUserDTO - DTO para validación de actualización de usuario
+ * Campos deben coincidir con lo que espera UserModel.updateUserData()
  */
 class UpdateUserDTO {
     constructor(data) {
@@ -9,7 +10,7 @@ class UpdateUserDTO {
         this.telefono = data.telefono?.trim();
         this.whatsapp = data.whatsapp?.trim();
         this.password = data.password || null;
-        this.rol = parseInt(data.rol);
+        this.rolId = parseInt(data.rol || data.rolId);
     }
 
     validate() {
@@ -39,7 +40,7 @@ class UpdateUserDTO {
             }
         }
 
-        if (!this.rol || isNaN(this.rol)) {
+        if (!this.rolId || isNaN(this.rolId)) {
             errors.push('El rol debe ser un número válido');
         }
 
@@ -60,7 +61,7 @@ class UpdateUserDTO {
             email: this.email,
             telefono: this.telefono,
             whatsapp: this.whatsapp,
-            rol: this.rol
+            rol: this.rolId
         };
 
         if (this.password) {
