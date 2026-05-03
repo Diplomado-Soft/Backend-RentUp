@@ -83,4 +83,104 @@ const sendContractAgreementEmail = async (email, nombre, apellido, aptName, star
     }
 };
 
-module.exports = { sendWelcomeEmail, sendContractAgreementEmail };
+const sendApartmentRejectionEmail = async (email, nombre, apellido, direccionApt, motivo) => {
+    try {
+        console.log('Enviando correo de rechazo a:', email);
+        
+        const info = await transporter.sendMail({
+            from: `"RentUp" <${process.env.GMAIL_USER}>`,
+            to: email,
+            subject: 'Apartamento rechazado - RentUp',
+            html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                    <h2 style="color: #dc3545;">Lo sentimos ${nombre} ${apellido}</h2>
+                    <p>Tu apartamento ubicado en <strong>${direccionApt}</strong> ha sido rechazado por nuestro equipo de administración.</p>
+                    
+                    <div style="background-color: #f8d7da; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #dc3545;">
+                        <h3 style="color: #721c24; margin-top: 0;">Motivo del rechazo</h3>
+                        <p style="margin-bottom: 0; color: #721c24;">${motivo}</p>
+                    </div>
+                    
+                    <p>Por favor, revisa los requisitos y considera hacer las correcciones necesarias antes de volver a publicar tu apartamento.</p>
+                    
+                    <div style="background-color: #f8f9fa; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                        <h4 style="color: #333; margin-top: 0;">¿Qué puedes hacer?</h4>
+                        <ul style="color: #555;">
+                            <li>Verifica que la dirección sea correcta y exacta</li>
+                            <li>Asegúrate de que las imágenes sean claras y muestren el inmueble</li>
+                            <li>Proporciona una descripción detallada del apartamento</li>
+                            <li>Confirma que el precio sea razonable para la zona</li>
+                        </ul>
+                    </div>
+                    
+                    <p>Si tienes preguntas sobre el rechazo o necesitas ayuda, no dudes en contactarnos.</p>
+                    <p><strong>RentUp</strong> - Tu plataforma de confianza para arrendar cerca de la Uniputumayo.</p>
+                    
+                    <hr style="margin-top: 30px;" />
+                    <p style="font-size: 12px; color: #666;">Este es un correo automático, por favor no respondas a este mensaje.</p>
+                </div>
+            `
+        });
+        
+        console.log('Correo de rechazo enviado:', info.messageId);
+        return { success: true, info };
+    } catch (error) {
+        console.error('Error enviando correo de rechazo:', error.message);
+        return { success: false, error };
+    }
+};
+
+const sendApartmentApprovalEmail = async (email, nombre, apellido, direccionApt) => {
+    try {
+        console.log('Enviando correo de aprobación a:', email);
+        
+        const info = await transporter.sendMail({
+            from: `"RentUp" <${process.env.GMAIL_USER}>`,
+            to: email,
+            subject: '¡Apartamento aprobado! - RentUp',
+            html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                    <h2 style="color: #28a745;">¡Felicidades ${nombre} ${apellido}!</h2>
+                    <p>Tu apartamento ubicado en <strong>${direccionApt}</strong> ha sido <strong style="color: #28a745;">aprobado</strong> por nuestro equipo de administración.</p>
+                    
+                    <div style="background-color: #d4edda; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #28a745;">
+                        <h3 style="color: #155724; margin-top: 0;">¡Tu apartamento ya está publicado!</h3>
+                        <p style="margin-bottom: 0; color: #155724;">Ahora será visible para todos los estudiantes y usuarios interesados en arrendar cerca de la Uniputumayo.</p>
+                    </div>
+                    
+                    <div style="background-color: #f8f9fa; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                        <h4 style="color: #333; margin-top: 0;">¿Qué sigue ahora?</h4>
+                        <ul style="color: #555;">
+                            <li>Tu apartamento aparecerá en los resultados de búsqueda</li>
+                            <li>Los inquilinos podrán ver tus fotos y descripción</li>
+                            <li>Recibirás notificaciones cuando alguien esté interesado</li>
+                            <li>Podrás gestionar contratos desde tu panel</li>
+                        </ul>
+                    </div>
+                    
+                    <p>Te recomendamos mantener tu información actualizada y responder pronto a las consultas de los interesados.</p>
+                    
+                    <div style="text-align: center; margin: 30px 0;">
+                        <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/dashboard" 
+                           style="background-color: #28a745; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold;">
+                            Ir a mi panel
+                        </a>
+                    </div>
+                    
+                    <p><strong>RentUp</strong> - Tu plataforma de confianza para arrendar cerca de la Uniputumayo.</p>
+                    
+                    <hr style="margin-top: 30px;" />
+                    <p style="font-size: 12px; color: #666;">Este es un correo automático, por favor no respondas a este mensaje.</p>
+                </div>
+            `
+        });
+        
+        console.log('Correo de aprobación enviado:', info.messageId);
+        return { success: true, info };
+    } catch (error) {
+        console.error('Error enviando correo de aprobación:', error.message);
+        return { success: false, error };
+    }
+};
+
+module.exports = { sendWelcomeEmail, sendContractAgreementEmail, sendApartmentRejectionEmail, sendApartmentApprovalEmail };

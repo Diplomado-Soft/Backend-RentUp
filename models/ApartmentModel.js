@@ -1,6 +1,7 @@
 const db = require('../config/db');
 const NotificationModel = require('./NotificationModel');
 const idriveService = require('../utils/idriveService');
+const { sendApartmentRejectionEmail, sendApartmentApprovalEmail } = require('../utils/emailService');
 
 class Apartment {
     static async addApartment(data) {
@@ -266,7 +267,14 @@ class Apartment {
                 return result;
             }
     
-            // 3. Eliminar imágenes de IDrive e2
+            // 3. Eliminar registros de imágenes de la base de datos
+            await connection.query(
+                'DELETE FROM apartment_images WHERE id_apt = ?',
+                [id_apt]
+            );
+            console.log(`Registros de imágenes eliminados de la BD para apartamento: ${id_apt}`);
+
+            // 4. Eliminar imágenes de IDrive e2
             for (const s3_key of s3_keys) {
                 try {
                     await idriveService.deleteImage(s3_key);
@@ -468,7 +476,7 @@ class Apartment {
 
             await connection.commit();
 
-            // Notificar al arrendador
+            // Notificar al arrendador (in-app)
             if (landlordId) {
                 try {
                     await NotificationModel.createForUser(landlordId, {
@@ -483,6 +491,28 @@ class Apartment {
                 }
             }
 
+            // Enviar correo de aprobación al arrendador
+            if (landlordId) {
+                try {
+                    const [landlordData] = await connection.query(
+                        'SELECT user_name, user_lastname, user_email FROM users WHERE user_id = ?',
+                        [landlordId]
+                    );
+                    
+                    if (landlordData.length > 0) {
+                        await sendApartmentApprovalEmail(
+                            landlordData[0].user_email,
+                            landlordData[0].user_name,
+                            landlordData[0].user_lastname,
+                            aptInfo[0].direccion_apt
+                        );
+                        console.log(`✅ Correo de aprobación enviado a: ${landlordData[0].user_email}`);
+                    }
+                } catch (emailError) {
+                    console.error('Error enviando correo de aprobación:', emailError.message);
+                }
+            }
+    
             return { success: true, message: 'Apartamento aprobado correctamente' };
         } catch (error) {
             await connection.rollback();
@@ -527,7 +557,7 @@ class Apartment {
 
             await connection.commit();
 
-            // Notificar al arrendador
+            // Notificar al arrendador (in-app)
             if (landlordId) {
                 try {
                     await NotificationModel.createForUser(landlordId, {
@@ -542,6 +572,34 @@ class Apartment {
                 }
             }
 
+            // Enviar correo de rechazo al arrendador
+            if (landlordId) {
+                try {
+                    const [landlordData] = await connection.query(
+                        'SELECT user_name, user_lastname, user_email FROM users WHERE user_id = ?',
+                        [landlordId]
+                    );
+                    
+                    if (landlordData.length > 0) {
+                        // Procesar el motivo: si está vacío o solo espacios, asignar descripción por defecto
+                        const motivoRechazo = (notes && notes.trim().length > 0) 
+                            ? notes.trim() 
+                            : 'No se especificó un motivo. Por favor, contacta al administrador para más información.';
+                        
+                        await sendApartmentRejectionEmail(
+                            landlordData[0].user_email,
+                            landlordData[0].user_name,
+                            landlordData[0].user_lastname,
+                            aptInfo[0].direccion_apt,
+                            motivoRechazo
+                        );
+                        console.log(`📧 Correo de rechazo enviado a: ${landlordData[0].user_email}`);
+                    }
+                } catch (emailError) {
+                    console.error('Error enviando correo de rechazo:', emailError.message);
+                }
+            }
+     
             return { success: true, message: 'Apartamento rechazado correctamente' };
         } catch (error) {
             await connection.rollback();
