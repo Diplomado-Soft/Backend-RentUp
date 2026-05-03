@@ -1,6 +1,7 @@
 const User = require('../models/userModel');
 const bcrypt = require('bcryptjs');
 const { generateToken } = require('../utils/auth');
+const { sendWelcomeEmail } = require('../utils/emailService');
 require('dotenv').config();
 
 exports.getUserData = async (req, res) => {
@@ -121,6 +122,11 @@ exports.signup = async (req, res) => {
             password,
             rolId
         });
+
+        // Enviar correo de bienvenida (no bloquea el registro si falla)
+        sendWelcomeEmail(email, nombre, apellido).catch(err =>
+            console.error('Error enviando correo de bienvenida:', err.message || err)
+        );
 
         // Generar token JWT
         const token = generateToken({
@@ -287,15 +293,19 @@ exports.deleteAccount = async (req, res) => {
 
         await connection.beginTransaction();
 
-        await connection.query(
-            'DELETE FROM user_rol WHERE user_id = ?',
-            [userId]
-        );
+        const eliminarRolUser = await User.deleteRolUser(userId);
+        if(!eliminarRolUser){
+            return res.status(500).json({
+                message: 'Error interno del server'
+            })
+        }
 
-        await connection.query(
-            'DELETE FROM users WHERE user_id = ?',
-            [userId]
-        );
+        const eliminando = await User.deleteAccount(userId);
+        if(!eliminando){
+            return res.status(500).json({
+                message: 'Error interno del servidor'
+            })
+        }
 
         await connection.commit();
 
