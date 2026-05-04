@@ -73,6 +73,8 @@ const firebaseLogin = async (req, res) => {
         let userId;
         let userData;
         let hasRol = false;
+        let requiresRoleSelection;
+        let appToken;
 
         if (users.length > 0) {
             // Usuario existente
@@ -102,13 +104,12 @@ const firebaseLogin = async (req, res) => {
         } else {
             // Usuario nuevo: crear
             console.log(`✨ [${requestId}] Creating new user:`, firebaseEmail);
-    const [result] = await db.query(
+            const [result] = await db.query(
                 `INSERT INTO users (user_name, user_lastname, user_email, user_google_id, profile_image, is_active)
                  VALUES (?, ?, ?, ?, ?, TRUE)`,
-                [nombre || firebaseEmail.split('@')[0], apellido || '', firebaseEmail, firebaseUid, photoURL || decodedToken.picture || null]
-            );
+                 [nombre || firebaseEmail.split('@')[0], apellido || '', firebaseEmail, firebaseUid, photoURL || decodedToken.picture || null]
+             );
 
-                        
             userId = result.insertId;
             console.log(`✅ [${requestId}] New user created: ID=${userId}`);
 
@@ -120,17 +121,6 @@ const firebaseLogin = async (req, res) => {
                 hasRol = true;
             }
 
-            if(hasRol) {
-                const appToken = jwt.sign({id: userId, rol: userData.rol_id || rolId}, process.env.JWT_SECRET,
-                    {expiresIn: '24h'}
-                );
-                res.json({success: true, user: userPayload, token: appToken, requiresRoleSelection: false});  
-            } else {
-                res.json({success: true, user: userPayload, token: null, requiresRoleSelection: true })
-            }
-
-
-
             // Enviar correo de bienvenida (no bloquea el registro si falla)
             sendWelcomeEmail(
                 firebaseEmail,
@@ -139,7 +129,7 @@ const firebaseLogin = async (req, res) => {
             ).catch(err =>
                 console.error(`❌ [${requestId}] Error enviando correo de bienvenida:`, err.message || err)
             );
-            
+
             // Obtener datos del usuario creado
             [users] = await db.query(
                 `SELECT U.user_id, U.user_name, U.user_lastname, U.user_email,
@@ -155,7 +145,7 @@ const firebaseLogin = async (req, res) => {
         // 3. Generar JWT de la app (no el de Firebase)
         if(hasRol) {
             console.log(`🔑 [${requestId}] Generating app JWT...`);
-            const appToken = jwt.sign(
+            appToken = jwt.sign(
                 { id: userId, rol: userData.rol_id || rolId },
                 process.env.JWT_SECRET,
                 { expiresIn: process.env.JWT_EXPIRES || '24h' }
@@ -168,7 +158,7 @@ const firebaseLogin = async (req, res) => {
         }
 
         // 4. Devolver datos del usuario y token
-    let userPayload = {
+        let userPayload = {
             id: userId,
             nombre: userData.user_name,
             apellido: userData.user_lastname,
@@ -178,7 +168,6 @@ const firebaseLogin = async (req, res) => {
             whatsapp: userData.whatsapp || null,
             photoURL: userData.profile_image,
             rol: userData.rol_id || null,
-            //token: appToken,
         };
 
         console.log(`✅ [${requestId}] Firebase login successful:`, { userId, requiresRoleSelection, hasRol });
