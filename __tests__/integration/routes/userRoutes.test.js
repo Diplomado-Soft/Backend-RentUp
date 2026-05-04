@@ -1,5 +1,11 @@
-const express = require('express');
 const request = require('supertest');
+const express = require('express');
+const jwt = require('jsonwebtoken');
+const { verifyToken } = require('../../../utils/auth');
+
+jest.mock('../../../utils/firebaseService', () => ({
+  verifyFirebaseToken: jest.fn(),
+}));
 
 jest.mock('../../../config/db', () => {
   const mockFn = jest.fn().mockResolvedValue([[]]);
@@ -39,6 +45,7 @@ describe('Integration Tests - User Routes', () => {
   let app;
 
   beforeEach(() => {
+    jest.resetModules();
     app = express();
     app.use(express.json());
     const userRoutes = require('../../../routes/userRoutes');
@@ -50,7 +57,6 @@ describe('Integration Tests - User Routes', () => {
       const res = await request(app)
         .post('/users/signup')
         .send({ nombre: 'John' });
-
       expect(res.status).toBe(400);
       expect(res.body).toHaveProperty('error');
     });
@@ -66,7 +72,6 @@ describe('Integration Tests - User Routes', () => {
           password: 'Password123',
           rolId: 1,
         });
-
       expect(res.status).toBe(400);
     });
   });
@@ -76,7 +81,6 @@ describe('Integration Tests - User Routes', () => {
       const res = await request(app)
         .post('/users/login')
         .send({ email: 'test@test.com' });
-
       expect(res.status).toBe(400);
     });
 
@@ -84,7 +88,6 @@ describe('Integration Tests - User Routes', () => {
       const res = await request(app)
         .post('/users/login')
         .send({ email: 'test@test.com', password: 'Password123' });
-
       expect([200, 401, 500]).toContain(res.status);
     });
   });
@@ -99,7 +102,6 @@ describe('Integration Tests - User Routes', () => {
       const res = await request(app)
         .get('/users/getUser')
         .set('Authorization', 'Bearer invalid');
-
       expect([401, 500]).toContain(res.status);
     });
   });
@@ -109,7 +111,6 @@ describe('Integration Tests - User Routes', () => {
       const res = await request(app)
         .put('/users/update')
         .send({ nombre: 'Updated' });
-
       expect(res.status).toBe(401);
     });
   });
@@ -119,7 +120,6 @@ describe('Integration Tests - User Routes', () => {
       const res = await request(app)
         .put('/users/profile')
         .send({ nombre: 'Updated' });
-
       expect(res.status).toBe(401);
     });
   });
@@ -136,7 +136,6 @@ describe('Integration Tests - User Routes', () => {
       const res = await request(app)
         .put('/users/update-whatsapp')
         .send({ telefono: '1234567890' });
-
       expect(res.status).toBe(401);
     });
   });
