@@ -1,4 +1,6 @@
 const Contract = require('../models/ContractModel');
+const db = require('../config/db');
+const { sendContractAgreementEmail } = require('../utils/emailService');
 
 exports.createContract = async (req, res) => {
     try {
@@ -35,6 +37,46 @@ exports.createContract = async (req, res) => {
             status: 'active',
             terms
         });
+
+        // Obtener datos para el correo
+        const [tenantData] = await db.query(
+            'SELECT user_name, user_lastname, user_email FROM users WHERE user_id = ?',
+            [tenant_id]
+        );
+        const [landlordData] = await db.query(
+            'SELECT user_name, user_lastname, user_email FROM users WHERE user_id = ?',
+            [userId]
+        );
+        const [aptData] = await db.query(
+            'SELECT apt_name FROM apartments WHERE id_apt = ?',
+            [id_apt]
+        );
+
+        // Enviar correo al inquilino
+        if (tenantData.length > 0) {
+            sendContractAgreementEmail(
+                tenantData[0].user_email,
+                tenantData[0].user_name,
+                tenantData[0].user_lastname,
+                aptData[0]?.apt_name || 'Vivienda',
+                new Date(start_date).toLocaleDateString(),
+                new Date(end_date).toLocaleDateString(),
+                monthly_rent
+            ).catch(err => console.error('Error enviando correo a inquilino:', err.message));
+        }
+
+        // Enviar correo al arrendador
+        if (landlordData.length > 0) {
+            sendContractAgreementEmail(
+                landlordData[0].user_email,
+                landlordData[0].user_name,
+                landlordData[0].user_lastname,
+                aptData[0]?.apt_name || 'Vivienda',
+                new Date(start_date).toLocaleDateString(),
+                new Date(end_date).toLocaleDateString(),
+                monthly_rent
+            ).catch(err => console.error('Error enviando correo a arrendador:', err.message));
+        }
 
         res.status(201).json({
             message: 'Arriendo creado exitosamente',

@@ -1,6 +1,8 @@
 const jwt = require('jsonwebtoken');
 const db = require('../config/db');
 const { verifyFirebaseToken, revokeFirebaseToken } = require('../utils/firebaseService');
+const { sendWelcomeEmail } = require('../utils/emailService');
+const { use } = require('react');
 
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
 
@@ -15,10 +17,9 @@ const firebaseLogin = async (req, res) => {
 
         console.log(`\n📝 [${requestId}] Firebase login request:`, {
             hasToken: !!firebaseToken,
-            hasRolId: !rolId,
+            hasRolId: !!rolId,
             tokenLength: firebaseToken ? firebaseToken.length : 0,
             email,
-            isFirstLogin: !rolId,
         });
 
         if (!firebaseToken) {
@@ -119,7 +120,25 @@ const firebaseLogin = async (req, res) => {
                 hasRol = true;
             }
 
+            if(hasRol) {
+                const appToken = jwt.sign({id: userId, rol: userData.rol_id || rolId}, process.env.JWT_SECRET,
+                    {expiresIn: '24h'}
+                );
+                res.json({success: true, user: userPayload, token: appToken, requiresRoleSelection: false});  
+            } else {
+                res.json({success: true, user: userPayload, token: null, requiresRoleSelection: true })
+            }
 
+
+
+            // Enviar correo de bienvenida (no bloquea el registro si falla)
+            sendWelcomeEmail(
+                firebaseEmail,
+                nombre || firebaseEmail.split('@')[0],
+                apellido || ''
+            ).catch(err =>
+                console.error(`❌ [${requestId}] Error enviando correo de bienvenida:`, err.message || err)
+            );
 
             // Obtener datos del usuario creado
             [users] = await db.query(
