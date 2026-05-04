@@ -149,8 +149,8 @@ exports.login = async (req, res) => {
 
         // Buscar usuario
         const user = await User.findByEmail(email);
-        if (!user) {
-            return res.status(401).json({ error: 'Usuario no encontrado' });
+        if (user && user.is_active === false) {
+            return res.status(403).json({ error: 'Usuario no encontrado o cuenta eliminada' });
         }
 
         // Verificar si el usuario usa Google OAuth
@@ -288,12 +288,10 @@ exports.deleteAccount = async (req, res) => {
             })
         }
 
-        const eliminando = await User.deleteAccount(userId);
-        if(!eliminando){
-            return res.status(500).json({
-                message: 'Error interno del servidor'
-            })
-        }
+        await connection.query( // actualiza el estado de la cuenta como inactiva
+            'UPDATE users SET is_active = FALSE WHERE user_id = ?',
+            [userId]
+        );
 
         await connection.commit();
 
