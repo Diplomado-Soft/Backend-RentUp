@@ -1,4 +1,7 @@
 const Apartment = require('../models/ApartmentModel');
+const CreateApartmentDTO = require('../dtos/CreateApartmentDTO');
+const UpdateApartmentDTO = require('../dtos/UpdateApartmentDTO');
+const ApartmentDTO = require('../dtos/ApartmentDTO');
 
 /**
  * POST /apartments/addApartment - Crear nuevo apartamento con imágenes
@@ -12,7 +15,6 @@ exports.addApartment = async (req, res) => {
         console.log('🔍 req.processedFiles:', req.processedFiles?.length || 0, 'procesados');
         
         // Obtener ID del usuario autenticado desde el token
-        // ✅ userId declarado UNA SOLA VEZ
         const userId = req.user?.id || req.user?.user_id;
 
         if (!userId) {
@@ -24,79 +26,26 @@ exports.addApartment = async (req, res) => {
 
         console.log(`📝 Creando apartamento para usuario: ${userId}`);
 
-        const {
-            barrio,
-            direccion,
-            latitud,
-            longitud,
-            addInfo,
-            price,
-            bedrooms,
-            bathrooms,
-            area_m2,
-            amenities
-        } = req.body;
-
-        // ✅ Todas las validaciones ANTES del INSERT
-        if (!barrio || !direccion) {
-            return res.status(400).json({
-                error: 'Barrio y dirección son campos requeridos'
-            });
-        }
-
-        if (!price || parseFloat(price) <= 0) {
-            return res.status(400).json({
-                error: 'Debe proporcionar un precio válido',
-                received: price
-            });
-        }
-
-        if (!addInfo || addInfo.trim() === '') {
-            return res.status(400).json({
-                error: 'Información adicional es requerida. Describe tu apartamento.'
-            });
-        }
-
-        const parsedPrice = parseFloat(price);
-        if (isNaN(parsedPrice)) {
-            return res.status(400).json({ error: 'Precio inválido', received: price });
-        }
-
-        const parsedBedrooms = bedrooms ? parseInt(bedrooms) : null;
-        if (bedrooms && isNaN(parsedBedrooms)) {
-            return res.status(400).json({ error: 'Número de habitaciones inválido' });
-        }
-
-        const parsedBathrooms = bathrooms ? parseInt(bathrooms) : null;
-        if (bathrooms && isNaN(parsedBathrooms)) {
-            return res.status(400).json({ error: 'Número de baños inválido' });
-        }
-
-        const parsedAreaM2 = area_m2 ? parseInt(area_m2) : null;
-        if (area_m2 && isNaN(parsedAreaM2)) {
-            return res.status(400).json({ error: 'Área inválida' });
-        }
-
-        console.log(`📍 Datos del apartamento:`, {
-            barrio, direccion,
-            latitud: latitud || 'vacío',
-            longitud: longitud || 'vacío',
-            price: parsedPrice, bedrooms, bathrooms, area_m2
-        });
-
-        // ✅ Apartment.addApartment llamado UNA SOLA VEZ
-        const apartmentResult = await Apartment.addApartment({
-            barrio,
-            direccion,
-            latitud: latitud || null,
-            longitud: longitud || null,
-            addInfo: addInfo || null,
-            price: parsedPrice,
-            bedrooms: parsedBedrooms,
-            bathrooms: parsedBathrooms,
-            area_m2: parsedAreaM2,
+        // Usar CreateApartmentDTO para validación
+        const apartmentDTO = new CreateApartmentDTO({
+            ...req.body,
             userId
         });
+
+        const validation = apartmentDTO.validate();
+        if (!validation.isValid) {
+            return res.status(400).json({
+                error: 'Datos de apartamento inválidos',
+                errors: validation.errors
+            });
+        }
+
+        const dtoData = apartmentDTO.toDatabaseFormat();
+
+        console.log(`📍 Datos del apartamento:`, dtoData);
+
+        // ✅ Apartment.addApartment llamado UNA SOLA VEZ
+        const apartmentResult = await Apartment.addApartment(dtoData);
 
         const apartmentId = apartmentResult.insertId;
 
@@ -139,8 +88,7 @@ exports.addApartment = async (req, res) => {
                 images: req.processedFiles?.map(file => ({
                     s3_key: file.s3_key,
                     url: file.signed_url
-                })) || [],
-                amenities: amenities ? amenities.split(',').map(a => a.trim()) : []
+                })) || []
             }
         });
 
@@ -200,29 +148,36 @@ exports.uploadImage = async (req, res) => {
 exports.updateApartment = async (req, res) => {
     try {
         const { id_apt } = req.params;
-        let { direccion_apt, barrio, latitud_apt, longitud_apt, info_add_apt, existing_images } = req.body;
         const newImages = req.processedFiles || [];
 
-        const requiredFields = ['direccion_apt', 'barrio', 'latitud_apt', 'longitud_apt'];
-        const missingFields  = requiredFields.filter(field => !req.body[field]);
-        if (missingFields.length > 0) {
-            return res.status(400).json({ error: 'Campos requeridos faltantes', missing: missingFields });
-        }
-
+        // Procesar existing_images
         let existingImagesArray = [];
-        if (existing_images) {
+        if (req.body.existing_images) {
             try {
-                existingImagesArray = JSON.parse(existing_images);
+                existingImagesArray = JSON.parse(req.body.existing_images);
                 if (!Array.isArray(existingImagesArray)) throw new Error('No es array');
             } catch (e) {
                 return res.status(400).json({ error: 'Formato de existing_images inválido' });
             }
         }
 
-        const updateResult = await Apartment.updateApartment(id_apt, {
-            direccion_apt, barrio, latitud_apt, longitud_apt,
-            info_add_apt, existing_images: existingImagesArray
+        // Usar UpdateApartmentDTO
+        const updateDTO = new UpdateApartmentDTO({
+            ...req.body,
+            existing_images: existingImagesArray
         });
+
+        const validation = updateDTO.validate();
+        if (!validation.isValid) {
+            return res.status(400).json({
+                error: 'Datos de actualización inválidos',
+                errors: validation.errors
+            });
+        }
+
+        const dtoData = updateDTO.toDatabaseFormat();
+
+        const updateResult = await Apartment.updateApartment(id_apt, dtoData);
 
         if (newImages.length > 0) {
             await Promise.allSettled(newImages.map(file =>
@@ -237,10 +192,7 @@ exports.updateApartment = async (req, res) => {
         });
     } catch (error) {
         console.error('Error actualizando apartamento:', error);
-        res.status(500).json({
-            error: 'Error al actualizar apartamento',
-            ...(process.env.NODE_ENV === 'development' && { details: error.message })
-        });
+        res.status(500).json({ error: 'Error al actualizar apartamento', ...(process.env.NODE_ENV === 'development' && { details: error.message }) });
     }
 };
 
@@ -248,7 +200,9 @@ exports.getApartmentsByLessor = async (req, res) => {
     try {
         const { id } = req.user;
         const results = await Apartment.getApartmentsByLessor(id);
-        res.json(results);
+        // Usar ApartmentDTO para formatear respuesta
+        const formattedResults = ApartmentDTO.fromDatabaseList(results);
+        res.json(formattedResults);
     } catch (error) {
         console.error('Error obteniendo apartamentos:', error);
         res.status(500).json({ error: 'Error al obtener los apartamentos' });
@@ -276,7 +230,9 @@ exports.getAllApartments = async (req, res) => {
         if (!Array.isArray(results)) {
             return res.status(500).json({ error: 'Error al obtener apartamentos', data: [] });
         }
-        res.json(results);
+        // Usar ApartmentDTO para formatear respuesta
+        const formattedResults = ApartmentDTO.fromDatabaseList(results);
+        res.json(formattedResults);
     } catch (error) {
         console.error('Error obteniendo apartamentos:', error);
         res.status(500).json({ error: 'Error al obtener los apartamentos' });
@@ -288,7 +244,9 @@ exports.getApartmentById = async (req, res) => {
         const { id } = req.params;
         const apartment = await Apartment.getApartmentById(id);
         if (!apartment) return res.status(404).json({ error: 'Apartamento no encontrado' });
-        res.json(apartment);
+        // Usar ApartmentDTO para formatear respuesta
+        const formattedApartment = ApartmentDTO.fromDatabase(apartment);
+        res.json(formattedApartment);
     } catch (error) {
         console.error('Error obteniendo apartamento por ID:', error);
         res.status(500).json({ error: 'Error al obtener el apartamento' });

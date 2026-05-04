@@ -4,7 +4,7 @@ const { verifyFirebaseToken, revokeFirebaseToken } = require('../utils/firebaseS
 const { sendWelcomeEmail } = require('../utils/emailService');
 const { use } = require('react');
 
-const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
+const FRONT_END_URL = process.env.FRONT_END_URL || 'http://localhost:3000';
 
 /**
  * POST /auth/firebase-login
@@ -139,7 +139,7 @@ const firebaseLogin = async (req, res) => {
             ).catch(err =>
                 console.error(`❌ [${requestId}] Error enviando correo de bienvenida:`, err.message || err)
             );
-
+            
             // Obtener datos del usuario creado
             [users] = await db.query(
                 `SELECT U.user_id, U.user_name, U.user_lastname, U.user_email,
