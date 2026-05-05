@@ -2,9 +2,7 @@ const User = require('../models/userModel');
 const bcrypt = require('bcryptjs');
 const { generateToken } = require('../utils/auth');
 const { sendWelcomeEmail } = require('../utils/emailService');
-const CreateUserDTO = require('../dtos/CreateUserDTO');
-const UpdateUserDTO = require('../dtos/UpdateUserDTO');
-const UserDTO = require('../dtos/UserDTO');
+const { CreateUserDTO, UpdateUserDTO, UserDTO } = require('../dtos');
 require('dotenv').config();
 
 exports.getUserData = async (req, res) => {

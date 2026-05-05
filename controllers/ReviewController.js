@@ -2,9 +2,7 @@ const Review = require('../models/ReviewModel');
 const AIAnalysisService = require('../utils/aiAnalysisService');
 const Notification = require('../models/NotificationModel');
 const Contract = require('../models/ContractModel');
-const CreateReviewDTO = require('../dtos/CreateReviewDTO');
-const UpdateReviewDTO = require('../dtos/UpdateReviewDTO');
-const ReviewDTO = require('../dtos/ReviewDTO');
+const { CreateReviewDTO, UpdateReviewDTO, ReviewDTO } = require('../dtos');
 
 /**
  * POST /reviews - Crear una nueva reseña
