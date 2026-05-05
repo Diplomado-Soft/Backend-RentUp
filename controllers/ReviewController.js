@@ -2,30 +2,39 @@ const Review = require('../models/ReviewModel');
 const AIAnalysisService = require('../utils/aiAnalysisService');
 const Notification = require('../models/NotificationModel');
 const Contract = require('../models/ContractModel');
+const CreateReviewDTO = require('../dtos/CreateReviewDTO');
+const UpdateReviewDTO = require('../dtos/UpdateReviewDTO');
+const ReviewDTO = require('../dtos/ReviewDTO');
 
 /**
  * POST /reviews - Crear una nueva reseña
  */
 exports.createReview = async (req, res) => {
   try {
-    const { property_id, rating, comment } = req.body;
+    if (!req.user) {
+      return res.status(401).json({ error: 'Usuario no autenticado' });
+    }
+
     const reviewer_id = req.user.id || req.user.user_id; // Usuario autenticado
 
-    // Validación
-    if (!property_id || !rating) {
+    // Usar CreateReviewDTO para validación
+    const reviewDTO = new CreateReviewDTO({
+      ...req.body,
+      reviewer_id
+    });
+
+    const validation = reviewDTO.validate();
+    if (!validation.isValid) {
       return res.status(400).json({
-        error: 'property_id y rating son requeridos'
+        error: 'Datos de reseña inválidos',
+        details: validation.errors
       });
     }
 
-    if (rating < 1 || rating > 5) {
-      return res.status(400).json({
-        error: 'El rating debe ser entre 1 y 5'
-      });
-    }
+    const dtoData = reviewDTO.toDatabaseFormat();
 
     // Verificar si el usuario ya ha reseñado esta propiedad
-    const hasReviewed = await Review.hasUserReviewedProperty(reviewer_id, property_id);
+    const hasReviewed = await Review.userHasReviewForProperty(reviewer_id, dtoData.property_id);
     if (hasReviewed) {
       return res.status(409).json({
         error: 'Ya has reseñado esta propiedad'
@@ -33,21 +42,18 @@ exports.createReview = async (req, res) => {
     }
 
     // Verificar si el usuario tiene un contrato con la propiedad
-    const contract = await Contract.hasUserRentedProperty(reviewer_id, property_id);
+    const contract = await Contract.hasUserRentedProperty(reviewer_id, dtoData.property_id);
     
     let verified_booking = false;
     if (contract) {
       verified_booking = true;
-      console.log(`✅ Usuario ${reviewer_id} tiene contrato ${contract.status} con propiedad ${property_id}`);
+      console.log(`✅ Usuario ${reviewer_id} tiene contrato ${contract.status} con propiedad ${dtoData.property_id}`);
     } else {
-      console.log(`⚠️ Usuario ${reviewer_id} NO tiene contrato con propiedad ${property_id}`);
+      console.log(`⚠️ Usuario ${reviewer_id} NO tiene contrato con propiedad ${dtoData.property_id}`);
     }
 
     const review = await Review.createReview({
-      reviewer_id,
-      property_id,
-      rating,
-      comment,
+      ...dtoData,
       verified_booking
     });
 
@@ -78,14 +84,22 @@ exports.createReview = async (req, res) => {
             'ai_flagged',
             `IA Flags: ${analysis.moderation.flags.join(', ')} (${analysis.moderation.severity})`
           );
-          // Notificación in-app para admins
-          await Notification.createForAdmins({
+          // Notificación in-app para admins (usar CreateNotificationDTO)
+          const notificationDTO = new CreateNotificationDTO({
+            user_id: 0, // createForAdmins maneja múltiples admins
             type: 'review_flagged',
             title: '🚩 Reseña flaggeada por IA',
             message: `La IA detectó contenido en una reseña: ${analysis.moderation.reason || analysis.moderation.flags.join(', ')}`,
             reference_id: review.review_id,
             reference_type: 'review'
           });
+
+          const notifValidation = notificationDTO.validate();
+          if (notifValidation.isValid) {
+            const dtoData = notificationDTO.toDatabaseFormat();
+            delete dtoData.user_id; // createForAdmins no espera user_id
+            await Notification.createForAdmins(dtoData);
+          }
           console.log(`⚠️ [T-13] Review ${review.review_id} flagged: ${analysis.moderation.reason}`);
         } else {
           console.log(`✅ [T-13] Review ${review.review_id} analizada - Sentimiento: ${analysis.sentiment?.sentiment}`);
@@ -119,9 +133,12 @@ exports.getPropertyReviews = async (req, res) => {
     const reviews = await Review.getPropertyReviews(property_id);
     const stats = await Review.getPropertyReviewStats(property_id);
 
+    // Usar ReviewDTO para formatear respuesta
+    const formattedReviews = ReviewDTO.fromDatabaseList(reviews);
+
     res.json({
       success: true,
-      reviews,
+      reviews: formattedReviews,
       stats
     });
   } catch (error) {
@@ -165,7 +182,6 @@ exports.getReview = async (req, res) => {
 exports.updateReview = async (req, res) => {
   try {
     const { review_id } = req.params;
-    const { rating, comment } = req.body;
     const user_id = req.user.id || req.user.user_id;
 
     // Verificar que la reseña existe y pertenece al usuario
@@ -183,7 +199,19 @@ exports.updateReview = async (req, res) => {
       });
     }
 
-    const updatedReview = await Review.updateReview(review_id, { rating, comment });
+    // Usar UpdateReviewDTO para validación
+    const updateDTO = new UpdateReviewDTO(req.body);
+    const validation = updateDTO.validate();
+    if (!validation.isValid) {
+      return res.status(400).json({
+        error: 'Datos de actualización inválidos',
+        details: validation.errors
+      });
+    }
+
+    const dtoData = updateDTO.toDatabaseFormat();
+
+    const updatedReview = await Review.updateReview(review_id, dtoData);
 
     res.json({
       success: true,

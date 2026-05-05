@@ -2,6 +2,9 @@ const User = require('../models/userModel');
 const bcrypt = require('bcryptjs');
 const { generateToken } = require('../utils/auth');
 const { sendWelcomeEmail } = require('../utils/emailService');
+const CreateUserDTO = require('../dtos/CreateUserDTO');
+const UpdateUserDTO = require('../dtos/UpdateUserDTO');
+const UserDTO = require('../dtos/UserDTO');
 require('dotenv').config();
 
 exports.getUserData = async (req, res) => {
@@ -15,10 +18,9 @@ exports.getUserData = async (req, res) => {
             return res.status(404).json({ error: "Usuario no encontrado" });
         }
 
-        // Excluir información sensible
-        const { user_password, ...userData } = user;
-
-        res.json(userData);
+        // Usar UserDTO para formatear respuesta
+        const userDTO = UserDTO.fromDatabase(user);
+        res.json(userDTO);
     } catch (error) {
         console.error("Error obteniendo datos del usuario:", error);
         res.status(500).json({ error: "Error en el servidor" });
@@ -53,23 +55,23 @@ const validateContactNumber = (value, fieldName) => {
 
 exports.updateUserData = async (req, res) => {
     console.log(req.body);
-    const { nombre, apellido, email, telefono, password, rol, whatsapp } = req.body;
     const userId = req.user.id; // Usuario autenticado desde el token
 
     try {
-        const validWhatsapp = validateContactNumber(whatsapp, 'WhatsApp');
-        const validPhone = validateContactNumber(telefono, 'teléfono');
+        // Usar UpdateUserDTO para validación
+        const userDTO = new UpdateUserDTO(req.body);
+        const validation = userDTO.validate();
+        if (!validation.isValid) {
+            return res.status(400).json({
+                error: 'Datos de actualización inválidos',
+                errors: validation.errors
+            });
+        }
+
+        const dtoData = userDTO.toDatabaseFormat();
 
         // Llamar al modelo para actualizar datos
-        const updatedUser = await User.updateUserData(userId, {
-            nombre,
-            apellido,
-            email,
-            telefono: validPhone,
-            password: password !== undefined ? password : null, // Si no se proporciona, no se actualiza
-            rol,
-            whatsapp: validWhatsapp
-        });
+        const updatedUser = await User.updateUserData(userId, dtoData);
 
         if (!updatedUser) {
             return res.status(404).json({ error: "Usuario no encontrado o no se pudo actualizar" });
@@ -88,43 +90,29 @@ exports.updateUserData = async (req, res) => {
 // Controlador para registrar un nuevo usuario
 exports.signup = async (req, res) => {
     try {
-        const { nombre, apellido, email, telefono, password, rolId } = req.body;
-        
-        // Validación de campos
-        const requiredFields = ['nombre', 'apellido', 'email', 'telefono', 'password', 'rolId'];
-        const missingFields = requiredFields.filter(field => !req.body[field]);
-        
-        if (missingFields.length > 0) {
+        // Usar CreateUserDTO para validación
+        const userDTO = new CreateUserDTO(req.body);
+        const validation = userDTO.validate();
+        if (!validation.isValid) {
             return res.status(400).json({
-                error: 'Campos requeridos faltantes',
-                missing: missingFields
+                error: 'Datos de registro inválidos',
+                errors: validation.errors
             });
         }
 
-        // Validar formato de email
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(email)) {
-            return res.status(400).json({ error: 'Formato de email inválido' });
-        }
+        const dtoData = userDTO.toDatabaseFormat();
 
         // Verificar si el usuario ya existe
-        const existingUser = await User.findByEmail(email);
+        const existingUser = await User.findByEmail(dtoData.email);
         if (existingUser) {
             return res.status(409).json({ error: 'El usuario ya está registrado' });
         }
         
         // Crear usuario en la db
-        const newUser = await User.signup({
-            nombre,
-            apellido,
-            email,
-            telefono,
-            password,
-            rolId
-        });
+        const newUser = await User.signup(dtoData);
 
         // Enviar correo de bienvenida (no bloquea el registro si falla)
-        sendWelcomeEmail(email, nombre, apellido).catch(err =>
+        sendWelcomeEmail(dtoData.email, dtoData.nombre, dtoData.apellido).catch(err =>
             console.error('Error enviando correo de bienvenida:', err.message || err)
         );
 
@@ -161,7 +149,11 @@ exports.login = async (req, res) => {
 
         // Buscar usuario
         const user = await User.findByEmail(email);
-        if (user && user.is_active === false) {
+        if (!user) {
+            return res.status(401).json({ error: 'Usuario no encontrado' });
+        }
+
+        if (user.is_active === false) {
             return res.status(403).json({ error: 'Usuario no encontrado o cuenta eliminada' });
         }
 

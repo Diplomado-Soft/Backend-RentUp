@@ -5,7 +5,7 @@ const { sendWelcomeEmail } = require('../utils/emailService');
 const { use } = require('react');
 const { messaging } = require('firebase-admin');
 
-const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
+const FRONT_END_URL = process.env.FRONT_END_URL || 'http://localhost:3000';
 
 /**
  * POST /auth/firebase-login
@@ -51,6 +51,8 @@ const firebaseLogin = async (req, res) => {
         let userId;
         let userData;
         let hasRol = false;
+        let requiresRoleSelection;
+        let appToken;
 
         // ==============================
         // 👤 USUARIO EXISTENTE
@@ -159,8 +161,6 @@ const firebaseLogin = async (req, res) => {
         // ==============================
         // 🔑 TOKEN
         // ==============================
-        let appToken = null;
-        let requiresRoleSelection = false;
 
         if (hasRol) {
             appToken = jwt.sign(

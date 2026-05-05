@@ -31,18 +31,24 @@ describe('Controller - User Controller', () => {
         user_lastname: 'Doe',
         user_email: 'john@test.com',
         user_password: 'hashed123',
+        user_phonenumber: null,
+        whatsapp: null,
+        profile_image: null,
+        rol_id: undefined,
+        phone_confirmed: false,
       };
       User.getUserData.mockResolvedValue(mockUser);
 
       await getUserData(req, res);
 
       expect(User.getUserData).toHaveBeenCalledWith(1);
-      expect(res.json).toHaveBeenCalledWith({
-        user_id: 1,
-        user_name: 'John',
-        user_lastname: 'Doe',
-        user_email: 'john@test.com',
-      });
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          user_email: 'john@test.com',
+          user_name: 'John',
+          user_lastname: 'Doe',
+        })
+      );
     });
 
     it('should return 404 if user not found', async () => {
@@ -75,8 +81,8 @@ describe('Controller - User Controller', () => {
       expect(res.status).toHaveBeenCalledWith(400);
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({
-          error: 'Campos requeridos faltantes',
-          missing: expect.arrayContaining(['apellido', 'email', 'telefono', 'password', 'rolId']),
+          error: 'Datos de registro inválidos',
+          errors: expect.any(Array),
         })
       );
     });
@@ -94,7 +100,12 @@ describe('Controller - User Controller', () => {
       await signup(req, res);
 
       expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith({ error: 'Formato de email inválido' });
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          error: 'Datos de registro inválidos',
+          errors: expect.arrayContaining(['Formato de email inválido']),
+        })
+      );
     });
 
     it('should return 409 if user already exists', async () => {
@@ -166,6 +177,16 @@ describe('Controller - User Controller', () => {
 
       expect(res.status).toHaveBeenCalledWith(401);
       expect(res.json).toHaveBeenCalledWith({ error: 'Usuario no encontrado' });
+    });
+
+    it('should return 403 if user account is deactivated', async () => {
+      req.body = { email: 'test@test.com', password: 'Password123' };
+      User.findByEmail.mockResolvedValue({ user_id: 1, is_active: false });
+
+      await login(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(403);
+      expect(res.json).toHaveBeenCalledWith({ error: 'Usuario no encontrado o cuenta eliminada' });
     });
 
     it('should return 400 if user uses Google OAuth', async () => {

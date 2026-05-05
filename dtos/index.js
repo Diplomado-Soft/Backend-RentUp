@@ -11,11 +11,8 @@ module.exports = {
     ReviewDTO: require('./ReviewDTO'),
     CreateReviewDTO: require('./CreateReviewDTO'),
     UpdateReviewDTO: require('./UpdateReviewDTO'),
-    ContractDTO: require('./ContractDTO'),
     CreateContractDTO: require('./CreateContractDTO'),
     UpdateContractDTO: require('./UpdateContractDTO'),
     NotificationDTO: require('./NotificationDTO'),
-    CreateNotificationDTO: require('./CreateNotificationDTO'),
-    DocumentDTO: require('./DocumentDTO'),
-    StatsDTO: require('./StatsDTO')
+    CreateNotificationDTO: require('./CreateNotificationDTO')
 };
