@@ -283,36 +283,33 @@ exports.updateWhatsApp = async (req, res) => {
  */
 exports.deleteAccount = async (req, res) => {
     const db = require('../config/db');
-    const connection = await db.getConnection();
+
     try {
-        const userId = req.user?.id || req.user?.user_id;
+        const userId = req.user?.id;
 
         if (!userId) {
             return res.status(401).json({ error: 'Usuario no autenticado' });
         }
 
-        await connection.beginTransaction();
+        // ❌ NO borrar rol
+        // ✅ Solo desactivar usuario
 
-        const eliminarRolUser = await User.deleteRolUser(userId);
-        if(!eliminarRolUser){
-            return res.status(500).json({
-                message: 'Error interno del server'
-            })
-        }
-
-        await connection.query( // actualiza el estado de la cuenta como inactiva
+        const [result] = await db.query(
             'UPDATE users SET is_active = FALSE WHERE user_id = ?',
             [userId]
         );
 
-        await connection.commit();
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ error: 'Usuario no encontrado' });
+        }
 
-        res.json({ message: 'Cuenta eliminada exitosamente' });
+        res.json({
+            success: true,
+            message: 'Cuenta desactivada correctamente'
+        });
+
     } catch (error) {
-        await connection.rollback();
         console.error('Error eliminando cuenta:', error);
-        res.status(500).json({ error: 'Error al eliminar la cuenta' });
-    } finally {
-        connection.release();
+        res.status(500).json({ error: error.message });
     }
 };
