@@ -28,6 +28,7 @@ exports.createContract = async (req, res) => {
         const contract = await Contract.create(dtoData);
 
         // Obtener datos para el correo
+        const tenant_id = dtoData.tenant_id;
         const [tenantData] = await db.query(
             'SELECT user_name, user_lastname, user_email FROM users WHERE user_id = ?',
             [tenant_id]
@@ -37,8 +38,8 @@ exports.createContract = async (req, res) => {
             [userId]
         );
         const [aptData] = await db.query(
-            'SELECT apt_name FROM apartments WHERE id_apt = ?',
-            [id_apt]
+            'SELECT direccion_apt FROM apartments WHERE id_apt = ?',
+            [dtoData.id_apt]
         );
 
         // Enviar correo al inquilino

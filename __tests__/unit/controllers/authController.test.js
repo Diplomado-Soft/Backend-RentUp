@@ -34,7 +34,7 @@ describe('Controller - Auth Controller', () => {
       await firebaseLogin(req, res);
 
       expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith({ error: 'Firebase token is required' });
+      expect(res.json).toHaveBeenCalledWith({ error: 'Token requerido' });
     });
 
     it('should return 401 if Firebase token verification fails', async () => {
@@ -77,9 +77,9 @@ describe('Controller - Auth Controller', () => {
       verifyFirebaseToken.mockResolvedValue(mockFirebaseData);
 
       db.query
-        .mockResolvedValueOnce([[]])
-        .mockResolvedValueOnce([{ insertId: 1 }])
-        .mockResolvedValueOnce([{ affectedRows: 1 }])
+        .mockResolvedValueOnce([[]]) // 1. search existing
+        .mockResolvedValueOnce([{ insertId: 1 }]) // 2. insert new user
+        .mockResolvedValueOnce([{ insertId: 1 }]) // 3. insert role
         .mockResolvedValueOnce([[{
           user_id: 1,
           user_name: 'John',
@@ -87,8 +87,9 @@ describe('Controller - Auth Controller', () => {
           user_email: 'newuser@test.com',
           user_phonenumber: null,
           whatsapp: null,
+          profile_image: null,
           rol_id: 1,
-        }]]);
+        }]]); // 4. get created user
 
       await firebaseLogin(req, res);
 
@@ -97,6 +98,7 @@ describe('Controller - Auth Controller', () => {
         expect.objectContaining({
           success: true,
           token: expect.any(String),
+          requiresRoleSelection: false,
         })
       );
     });
@@ -119,14 +121,18 @@ describe('Controller - Auth Controller', () => {
           user_google_id: 'abc123',
           profile_image: 'http://example.com/old.jpg',
           rol_id: 2,
+          is_active: true,
         }]])
-        .mockResolvedValueOnce([{ affectedRows: 0 }]);
+        .mockResolvedValueOnce([[{ rol_id: 2 }]]) // role check
+        .mockResolvedValueOnce([{ affectedRows: 0 }]); // update firebase uid (skipped since already has google_id)
 
       await firebaseLogin(req, res);
 
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({
           success: true,
+          token: expect.any(String),
+          requiresRoleSelection: false,
           user: expect.objectContaining({
             id: 5,
             email: 'existing@test.com',

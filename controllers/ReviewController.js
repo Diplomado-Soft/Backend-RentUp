@@ -9,6 +9,10 @@ const { CreateReviewDTO, UpdateReviewDTO, ReviewDTO } = require('../dtos');
  */
 exports.createReview = async (req, res) => {
   try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Usuario no autenticado' });
+    }
+
     const reviewer_id = req.user.id || req.user.user_id; // Usuario autenticado
 
     // Usar CreateReviewDTO para validación
@@ -28,7 +32,7 @@ exports.createReview = async (req, res) => {
     const dtoData = reviewDTO.toDatabaseFormat();
 
     // Verificar si el usuario ya ha reseñado esta propiedad
-    const hasReviewed = await Review.hasUserReviewedProperty(reviewer_id, dtoData.property_id);
+    const hasReviewed = await Review.userHasReviewForProperty(reviewer_id, dtoData.property_id);
     if (hasReviewed) {
       return res.status(409).json({
         error: 'Ya has reseñado esta propiedad'
