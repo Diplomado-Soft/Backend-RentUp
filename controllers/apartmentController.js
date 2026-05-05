@@ -1,7 +1,5 @@
 const Apartment = require('../models/ApartmentModel');
-const CreateApartmentDTO = require('../dtos/CreateApartmentDTO');
-const UpdateApartmentDTO = require('../dtos/UpdateApartmentDTO');
-const ApartmentDTO = require('../dtos/ApartmentDTO');
+const { CreateApartmentDTO, UpdateApartmentDTO, ApartmentDTO } = require('../dtos');
 
 /**
  * POST /apartments/addApartment - Crear nuevo apartamento con imágenes

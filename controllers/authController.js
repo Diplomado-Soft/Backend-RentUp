@@ -2,7 +2,7 @@ const jwt = require('jsonwebtoken');
 const db = require('../config/db');
 const { verifyFirebaseToken, revokeFirebaseToken } = require('../utils/firebaseService');
 const { sendWelcomeEmail } = require('../utils/emailService');
-const { use } = require('react');
+const { LoginDTO, LogoutDTO } = require('../dtos');
 
 const FRONT_END_URL = process.env.FRONT_END_URL || 'http://localhost:3000';
 
@@ -13,7 +13,19 @@ const FRONT_END_URL = process.env.FRONT_END_URL || 'http://localhost:3000';
 const firebaseLogin = async (req, res) => {
     const requestId = Math.random().toString(36).substring(7);
     try {
-        const { firebaseToken, rolId, email, nombre, apellido, photoURL } = req.body;
+        // Usar LoginDTO para validación
+        const loginDTO = new LoginDTO(req.body);
+        const validation = loginDTO.validate();
+        
+        if (!validation.isValid) {
+            console.log(`❌ [${requestId}] Invalid login data:`, validation.errors);
+            return res.status(400).json({ 
+                error: 'Datos de login inválidos', 
+                errors: validation.errors 
+            });
+        }
+
+        const { firebaseToken, rolId, email, nombre, apellido, photoURL } = loginDTO.toFirebaseFormat();
 
         console.log(`\n📝 [${requestId}] Firebase login request:`, {
             hasToken: !!firebaseToken,
@@ -21,11 +33,6 @@ const firebaseLogin = async (req, res) => {
             tokenLength: firebaseToken ? firebaseToken.length : 0,
             email,
         });
-
-        if (!firebaseToken) {
-            console.log(`❌ [${requestId}] Missing Firebase token`);
-            return res.status(400).json({ error: 'Token requerido' });
-        }
 
         // 1. Verificar Firebase token
         console.log(`🔐 [${requestId}] Verifying Firebase token...`);
@@ -222,12 +229,19 @@ const githubCallback = (req, res) => {
  */
 const logout = async (req, res) => {
     try {
-        const { firebaseToken } = req.body;
+        // Usar LogoutDTO para validación
+        const logoutDTO = new LogoutDTO(req.body);
+        const validation = logoutDTO.validate();
         
-        if (!firebaseToken) {
-            return res.status(400).json({ error: 'Firebase token is required' });
+        if (!validation.isValid) {
+            return res.status(400).json({ 
+                error: 'Datos de logout inválidos', 
+                errors: validation.errors 
+            });
         }
 
+        const { firebaseToken } = logoutDTO;
+        
         const decodedToken = await verifyFirebaseToken(firebaseToken);
         await revokeFirebaseToken(decodedToken.uid);
 

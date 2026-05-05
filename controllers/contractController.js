@@ -1,8 +1,7 @@
 const Contract = require('../models/ContractModel');
 const db = require('../config/db');
 const { sendContractAgreementEmail } = require('../utils/emailService');
-const CreateContractDTO = require('../dtos/CreateContractDTO');
-const UpdateContractDTO = require('../dtos/UpdateContractDTO');
+const { CreateContractDTO, UpdateContractDTO, ContractDTO } = require('../dtos');
 
 exports.createContract = async (req, res) => {
     try {
@@ -85,8 +84,11 @@ exports.createContract = async (req, res) => {
 exports.getLandlordContracts = async (req, res) => {
     try {
         const userId = req.user?.id || req.user?.userId;
-        const contracts = await Contract.getApartmentContracts(userId);
-        res.json(contracts);
+        const aptContracts = await Contract.getApartmentContracts(userId);
+        
+        // Usar ContractDTO para formatear respuesta
+        const formattedContracts = ContractDTO.fromDatabaseList(aptContracts);
+        res.json(formattedContracts);
     } catch (error) {
         console.error('Error obteniendo contratos:', error);
         res.status(500).json({ error: 'Error al obtener los contratos' });
@@ -125,14 +127,16 @@ exports.getMyContracts = async (req, res) => {
 
         console.log('getMyContracts - userId:', userId, 'userRole:', userRole);
 
-        let contracts;
+        let myContracts;
         if (userRole === 2) {
-            contracts = await Contract.getByLandlord(userId);
+            myContracts = await Contract.getByLandlord(userId);
         } else {
-            contracts = await Contract.getByTenant(userId);
+            myContracts = await Contract.getByTenant(userId);
         }
 
-        res.json(contracts);
+        // Usar ContractDTO para formatear respuesta
+        const formattedContracts = ContractDTO.fromDatabaseList(myContracts);
+        res.json(formattedContracts);
     } catch (error) {
         console.error('Error obteniendo contratos:', error);
         res.status(500).json({ error: 'Error al obtener los contratos' });
@@ -141,14 +145,16 @@ exports.getMyContracts = async (req, res) => {
 
 exports.getContractById = async (req, res) => {
     try {
-        const { id_contract } = req.params;
-        const contract = await Contract.getById(id_contract);
+        const { agreement_id } = req.params;
+        const contract = await Contract.getById(agreement_id);
 
         if (!contract) {
             return res.status(404).json({ error: 'Contrato no encontrado' });
         }
 
-        res.json(contract);
+        // Usar ContractDTO para formatear respuesta
+        const contractDTO = ContractDTO.fromDatabase(contract);
+        res.json(contractDTO);
     } catch (error) {
         console.error('Error obteniendo contrato:', error);
         res.status(500).json({ error: 'Error al obtener el contrato' });
@@ -193,8 +199,10 @@ exports.getMonthlyStats = async (req, res) => {
         const { year, month } = req.query;
         const stats = await Contract.getMonthlyStats(
             parseInt(year) || new Date().getFullYear(),
-            parseInt(month) || new Date().getMonth() + 1
+            parseInt(month) || new Date().getMonth() +1
         );
+        
+        // Formatear respuesta (si es necesario)
         res.json(stats);
     } catch (error) {
         console.error('Error obteniendo estadísticas:', error);
