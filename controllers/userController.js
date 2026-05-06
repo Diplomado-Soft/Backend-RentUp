@@ -413,10 +413,10 @@ exports.blockUser = async (req, res) => {
             [reason, id]
         );
         
-        const [userRows] = await db.query('SELECT email, nombre, apellido FROM users WHERE user_id = ?', [id]);
+        const [userRows] = await db.query('SELECT user_email, user_name, user_lastname FROM users WHERE user_id = ?', [id]);
         if (userRows.length > 0) {
-            const { email, nombre, apellido } = userRows[0];
-            await sendUserBlockEmail(email, nombre, apellido, reason);
+            const { user_email, user_name, user_lastname } = userRows[0];
+            await sendUserBlockEmail(user_email, user_name, user_lastname, reason);
         }
         
         console.log(`Usuario ${id} bloqueado por admin ${req.user.id}. Razón: ${reason}`);
