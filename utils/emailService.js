@@ -183,4 +183,28 @@ const sendApartmentApprovalEmail = async (email, nombre, apellido, direccionApt)
     }
 };
 
-module.exports = { sendWelcomeEmail, sendContractAgreementEmail, sendApartmentRejectionEmail, sendApartmentApprovalEmail };
+const sendUserBlockEmail = async (email, nombre, apellido, motivo) => {
+    try {
+        const info = await transporter.sendMail({
+            from: `"RentUp" <${process.env.GMAIL_USER}>`,
+            to: email,
+            subject: 'Tu cuenta ha sido bloqueada - RentUp',
+            html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin:0 auto;">
+                    <h2 style="color: #e74c3c;">Cuenta bloqueada</h2>
+                    <p>Hola ${nombre} ${apellido},</p>
+                    <p>Tu cuenta en RentUp ha sido bloqueada por un administrador.</p>
+                    <p><strong>Motivo:</strong> ${motivo}</p>
+                    <p>Si tienes dudas, contacta al soporte.</p>
+                </div>
+            `
+        });
+        console.log('Correo de bloqueo enviado:', info.messageId);
+        return { success: true, info };
+    } catch (error) {
+        console.error('Error enviando correo de bloqueo:', error.message);
+        return { success: false, error };
+    }
+};
+
+module.exports = { sendWelcomeEmail, sendContractAgreementEmail, sendApartmentRejectionEmail, sendApartmentApprovalEmail, sendUserBlockEmail };
