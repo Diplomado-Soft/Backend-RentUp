@@ -1,7 +1,7 @@
 const User = require('../models/userModel');
 const bcrypt = require('bcryptjs');
 const { generateToken } = require('../utils/auth');
-const { sendWelcomeEmail } = require('../utils/emailService');
+const { sendWelcomeEmail, sendUserBlockEmail } = require('../utils/emailService');
 const { CreateUserDTO, UpdateUserDTO, UserDTO } = require('../dtos');
 const db = require('../config/db');
 require('dotenv').config();
@@ -406,6 +406,17 @@ exports.blockUser = async (req, res) => {
         
         if (result.affectedRows === 0) {
             return res.status(404).json({ success: false, error: 'Usuario no encontrado' });
+        }
+        
+        await db.query(
+            'INSERT INTO motivo (descripcion, user_id) VALUES (?, ?)',
+            [reason, id]
+        );
+        
+        const [userRows] = await db.query('SELECT email, nombre, apellido FROM users WHERE user_id = ?', [id]);
+        if (userRows.length > 0) {
+            const { email, nombre, apellido } = userRows[0];
+            await sendUserBlockEmail(email, nombre, apellido, reason);
         }
         
         console.log(`Usuario ${id} bloqueado por admin ${req.user.id}. Razón: ${reason}`);
