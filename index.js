@@ -75,6 +75,7 @@ const statsRoutes = require('./routes/statsRoutes');
 const chatRoutes = require('./chat/chatRoutes');
 const reviewRoutes = require('./routes/reviewRoutes');
 const adminApartmentRoutes = require('./routes/adminApartmentRoutes');
+const adminUserRoutes = require('./routes/adminUserRoutes');
 const contractRoutes = require('./routes/contractRoutes');
 const reportRoutes = require('./routes/reportRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
@@ -93,6 +94,7 @@ app.use('/reviews', reviewRoutes);
 app.use('/contracts', contractRoutes);
 app.use('/admin/reports', reportRoutes);
 app.use('/admin/notifications', notificationRoutes);
+app.use('/admin/users', adminUserRoutes);
 app.use('/geolocation', geolocationRoutes);
 
 // === Manejo de errores ===
