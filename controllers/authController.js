@@ -1,10 +1,11 @@
 const jwt = require('jsonwebtoken');
 const db = require('../config/db');
 const { verifyFirebaseToken, revokeFirebaseToken } = require('../utils/firebaseService');
-const { sendWelcomeEmail } = require('../utils/emailService');
-const { use } = require('react');
-const { messaging } = require('firebase-admin');
-const { refreshToken } = require('firebase-admin/app');
+const { sendWelcomeEmail, sendPasswordResetEmail } = require('../utils/emailService');
+const { sendPasswordResetSMS } = require('../utils/smsService');
+const { LoginDTO, LogoutDTO } = require('../dtos');
+const crypto = require('crypto');
+const bcrypt = require('bcryptjs');
 
 const FRONT_END_URL = process.env.FRONT_END_URL || 'http://localhost:3000';
 
@@ -16,7 +17,19 @@ const firebaseLogin = async (req, res) => {
     const requestId = Math.random().toString(36).substring(7);
 
     try {
-        const { firebaseToken, rolId, email, nombre, apellido, photoURL } = req.body;
+        // Usar LoginDTO para validación
+        const loginDTO = new LoginDTO(req.body);
+        const validation = loginDTO.validate();
+        
+        if (!validation.isValid) {
+            console.log(`❌ [${requestId}] Invalid login data:`, validation.errors);
+            return res.status(400).json({ 
+                error: 'Datos de login inválidos', 
+                errors: validation.errors 
+            });
+        }
+
+        const { firebaseToken, rolId, email, nombre, apellido, photoURL } = loginDTO.toFirebaseFormat();
 
         const validRoles = [1, 2]; // 1=usuario, 2=arrendador
 
@@ -26,12 +39,28 @@ const firebaseLogin = async (req, res) => {
             email
         });
 
-        if (!firebaseToken) {
-            return res.status(400).json({ error: 'Token requerido' });
+        // 1. Verificar Firebase token
+        console.log(`🔐 [${requestId}] Verifying Firebase token...`);
+        let decodedToken;
+        try {
+            decodedToken = await verifyFirebaseToken(firebaseToken);
+            console.log(`✅ [${requestId}] Token verified for:`, decodedToken.email);
+        } catch (tokenError) {
+            console.error(`❌ [${requestId}] Token verification failed:`, {
+                message: tokenError.message,
+                errorInfo: tokenError.errorInfo,
+                code: tokenError.code
+            });
+            
+            // Return detailed error for debugging in development
+            return res.status(401).json({ 
+                error: 'Invalid Firebase token',
+                message: tokenError.message,
+                details: process.env.NODE_ENV === 'development' ? tokenError.message : 'Authentication failed',
+                requestId
+            });
         }
 
-        // 🔐 1. Verificar token
-        const decodedToken = await verifyFirebaseToken(firebaseToken);
         const firebaseUid = decodedToken.uid;
         const firebaseEmail = decodedToken.email || email;
 
@@ -54,6 +83,8 @@ const firebaseLogin = async (req, res) => {
         let hasRol = false;
         let requiresRoleSelection;
         let appToken;
+        let refreshToken;
+
 
         // ==============================
         // 👤 USUARIO EXISTENTE
@@ -76,6 +107,14 @@ const firebaseLogin = async (req, res) => {
                 hasRol = false;
                 userData.rol_id = null;
             }
+            // Verificar si la cuenta está bloqueada
+             if (users[0].is_active === false || users[0].is_active === 0) {
+                 console.log(`[${requestId}] Cuenta bloqueada:`, userId);
+                 return res.status(403).json({ 
+                     success: false, 
+                     error: 'Esta cuenta ha sido bloqueada. Contacta al administrador.' 
+                 });
+             }
 
             // 🔄 Actualizar datos Google
             if (!userData.user_google_id || !userData.profile_image) {
@@ -169,11 +208,12 @@ const firebaseLogin = async (req, res) => {
                 { expiresIn: '24h' }
             );
 
-            const refreshToken = jwt.sign(
-                {id: userId},
+            refreshToken = jwt.sign(
+                { id: userId },
                 process.env.JWT_REFRESH_SECRET,
-                {expiresIn: '7d'}
-            )
+                { expiresIn: '7d' }
+            );
+
         } else {
             requiresRoleSelection = true;
         }
@@ -227,12 +267,19 @@ const githubCallback = (req, res) => {
  */
 const logout = async (req, res) => {
     try {
-        const { firebaseToken } = req.body;
+        // Usar LogoutDTO para validación
+        const logoutDTO = new LogoutDTO(req.body);
+        const validation = logoutDTO.validate();
         
-        if (!firebaseToken) {
-            return res.status(400).json({ error: 'Firebase token is required' });
+        if (!validation.isValid) {
+            return res.status(400).json({ 
+                error: 'Datos de logout inválidos', 
+                errors: validation.errors 
+            });
         }
 
+        const { firebaseToken } = logoutDTO;
+        
         const decodedToken = await verifyFirebaseToken(firebaseToken);
         await revokeFirebaseToken(decodedToken.uid);
 
@@ -243,4 +290,158 @@ const logout = async (req, res) => {
     }
 };
 
-module.exports = { firebaseLogin, githubRedirect, githubCallback, logout };
+/**
+ * POST /auth/forgot-password
+ * Paso 1: Verificar email y si tiene teléfono
+ * Paso 2: Enviar código (email o SMS)
+ */
+const forgotPassword = async (req, res) => {
+    try {
+        const { email, phoneNumber, step, method } = req.body;
+        
+        // PASO 1: Verificar email
+        if (step === 1) {
+            if (!email) {
+                return res.status(400).json({ error: 'El email es requerido' });
+            }
+            
+            const [userRows] = await db.query(
+                'SELECT user_id, user_name, user_lastname, user_email, user_phonenumber FROM users WHERE user_email = ?', 
+                [email]
+            );
+            
+            if (userRows.length === 0) {
+                return res.json({ success: true, hasPhone: false, message: 'Si el email está registrado, recibirás instrucciones' });
+            }
+            
+            const user = userRows[0];
+            const hasPhone = !!user.user_phonenumber;
+            
+            return res.json({
+                success: true,
+                hasPhone,
+                userId: user.user_id,
+                maskedPhone: hasPhone ? user.user_phonenumber.replace(/(\d{3})\d{6}(\d{2})/, '$1******$2') : null
+            });
+        }
+        
+        // PASO 2: Enviar código
+        console.log('PASO 2 - Email:', email, '| Method:', method, '| Phone:', phoneNumber);
+        
+        if (!email) {
+            return res.status(400).json({ error: 'Email es requerido' });
+        }
+        
+        const [userRows] = await db.query(
+            'SELECT user_id, user_name, user_lastname, user_email, user_phonenumber FROM users WHERE user_email = ?', 
+            [email]
+        );
+        
+        if (userRows.length === 0) {
+            return res.status(400).json({ error: 'Usuario no encontrado' });
+        }
+        
+        const user = userRows[0];
+        
+        // Generar código de 6 dígitos
+        const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
+        
+        // Guardar en BD (expira en 10 minutos)
+        await db.query('UPDATE users SET reset_token = ?, reset_token_expiry = DATE_ADD(NOW(), INTERVAL 10 MINUTE) WHERE user_id = ?', [resetCode, user.user_id]);
+        
+        console.log('Código generado para usuario', user.user_id, ':', resetCode);
+        
+        // Enviar por método elegido
+        if (method === 'email') {
+            console.log('Enviando correo a:', user.user_email);
+            try {
+                const emailResult = await sendPasswordResetEmail(user.user_email, user.user_name, user.user_lastname, resetCode);
+                console.log('Resultado correo:', emailResult);
+                return res.json({ success: true, method: 'email', message: 'Código enviado por correo' });
+            } catch (emailError) {
+                console.error('Error enviando correo:', emailError);
+                return res.status(500).json({ error: 'Error enviando correo: ' + emailError.message });
+            }
+        }
+        
+        // Para SMS, verificar que el teléfono coincida
+        if (!phoneNumber) {
+            return res.status(400).json({ error: 'Teléfono es requerido para SMS' });
+        }
+        
+        // Normalizar números para comparación (solo dígitos)
+        const storedPhoneDigits = user.user_phonenumber.replace(/\D/g, '');
+        const inputPhoneDigits = phoneNumber.replace(/\D/g, '');
+        
+        // Verificar si los últimos 10 dígitos coinciden (asumiendo Colombia)
+        const storedLast10 = storedPhoneDigits.slice(-10);
+        const inputLast10 = inputPhoneDigits.slice(-10);
+        
+        console.log('Teléfonos - Almacenado:', storedPhoneDigits, '| Ingresado:', inputPhoneDigits);
+        console.log('Comparando últimos 10 dígitos - Almacenado:', storedLast10, '| Ingresado:', inputLast10);
+        
+        if (storedLast10 !== inputLast10) {
+            return res.status(400).json({ error: 'El teléfono no coincide con el registrado' });
+        }
+        
+        console.log('Enviando SMS al número almacenado:', user.user_phonenumber);
+        const smsResult = await sendPasswordResetSMS(user.user_phonenumber, resetCode);
+        
+        if (!smsResult.success) {
+            // Si falla SMS, enviar por email como respaldo
+            if (user.user_email) {
+                await sendPasswordResetEmail(user.user_email, user.user_name, user.user_lastname, resetCode);
+                return res.json({ success: true, method: 'email', message: 'Código enviado por correo (SMS falló)' });
+            }
+            return res.status(500).json({ error: 'Error enviando código' });
+        }
+        
+        res.json({ success: true, method: 'sms', message: 'Código enviado por SMS' });
+    } catch (error) {
+        console.error('Error en forgotPassword:', error);
+        res.status(500).json({ error: 'Error al procesar la solicitud' });
+    }
+};
+
+/**
+ * POST /auth/reset-password
+ * Restablecer contraseña con código (6 dígitos)
+ */
+const resetPassword = async (req, res) => {
+    try {
+        const { code, newPassword } = req.body;
+        
+        if (!code || !newPassword) {
+            return res.status(400).json({ error: 'Código y nueva contraseña son requeridos' });
+        }
+        
+        if (newPassword.length < 6) {
+            return res.status(400).json({ error: 'La contraseña debe tener al menos 6 caracteres' });
+        }
+        
+        // Buscar usuario por código válido
+        console.log('Buscando código:', code);
+        const [userRows] = await db.query('SELECT user_id FROM users WHERE reset_token = ? AND reset_token_expiry > NOW()', [code]);
+        console.log('Resultado búsqueda:', userRows.length > 0 ? 'Código válido' : 'Código inválido o expirado');
+        
+        if (userRows.length === 0) {
+            return res.status(400).json({ error: 'Código inválido o expirado' });
+        }
+        
+        const user = userRows[0];
+        
+        // Encriptar nueva contraseña
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(newPassword, salt);
+        
+        // Actualizar contraseña y limpiar token
+        await db.query('UPDATE users SET user_password = ?, reset_token = NULL, reset_token_expiry = NULL WHERE user_id = ?', [hashedPassword, user.user_id]);
+        
+        res.json({ success: true, message: 'Contraseña restablecida exitosamente' });
+    } catch (error) {
+        console.error('Error en resetPassword:', error);
+        res.status(500).json({ error: 'Error al restablecer la contraseña' });
+    }
+};
+
+module.exports = { firebaseLogin, githubRedirect, githubCallback, logout, forgotPassword, resetPassword };

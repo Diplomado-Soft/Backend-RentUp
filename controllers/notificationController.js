@@ -1,6 +1,5 @@
 const NotificationModel = require('../models/NotificationModel');
-const CreateNotificationDTO = require('../dtos/CreateNotificationDTO');
-const NotificationDTO = require('../dtos/NotificationDTO');
+const { CreateNotificationDTO, NotificationDTO, UpdateNotificationDTO } = require('../dtos');
 
 /**
  * GET /admin/notifications
@@ -37,6 +36,18 @@ exports.markRead = async (req, res) => {
         if (user_role !== 3 && user_role !== '3') return res.status(403).json({ error: 'Acceso denegado' });
 
         const { id } = req.params;
+        
+        // Usar UpdateNotificationDTO para validación
+        const updateDTO = new UpdateNotificationDTO({ read_at: new Date().toISOString() });
+        const validation = updateDTO.validate();
+        if (!validation.isValid) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'Datos inválidos', 
+                errors: validation.errors 
+            });
+        }
+        
         await NotificationModel.markRead(parseInt(id), user_id);
         res.json({ success: true });
     } catch (error) {

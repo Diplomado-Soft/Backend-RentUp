@@ -22,6 +22,54 @@ const isOllamaRunning = async () => {
 };
 
 /**
+ * Health check completo del servicio de IA
+ */
+const healthCheck = async () => {
+    try {
+        const isRunning = await isOllamaRunning();
+        
+        if (!isRunning) {
+            return {
+                success: false,
+                ollama: { available: false, error: 'Ollama no está corriendo' }
+            };
+        }
+
+        // Verificar si el modelo está disponible
+        const response = await fetch(`${OLLAMA_URL}/api/tags`, {
+            method: 'GET',
+            signal: AbortSignal.timeout(3000)
+        });
+        
+        if (!response.ok) {
+            return {
+                success: false,
+                ollama: { available: true, error: 'Error obteniendo modelos' }
+            };
+        }
+
+        const data = await response.json();
+        const models = data.models || [];
+        const hasModel = models.some(m => m.name === OLLAMA_MODEL || m.name === OLLAMA_MODEL.split(':')[0]);
+
+        return {
+            success: true,
+            ollama: {
+                available: true,
+                model: OLLAMA_MODEL,
+                model_available: hasModel,
+                models: models.map(m => m.name)
+            }
+        };
+    } catch (error) {
+        return {
+            success: false,
+            ollama: { available: false, error: error.message }
+        };
+    }
+};
+
+/**
  * Analizar una reseña con Ollama
  * @param {string} comment - Texto de la reseña
  * @param {number} rating - Rating numérico (1-5)
@@ -97,5 +145,6 @@ EJEMPLOS:
 
 module.exports = {
     isOllamaRunning,
-    processReviewAnalysis
+    processReviewAnalysis,
+    healthCheck
 };

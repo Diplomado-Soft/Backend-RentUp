@@ -1,10 +1,9 @@
 const User = require('../models/userModel');
 const bcrypt = require('bcryptjs');
 const { generateToken } = require('../utils/auth');
-const { sendWelcomeEmail } = require('../utils/emailService');
-const CreateUserDTO = require('../dtos/CreateUserDTO');
-const UpdateUserDTO = require('../dtos/UpdateUserDTO');
-const UserDTO = require('../dtos/UserDTO');
+const { sendWelcomeEmail, sendUserBlockEmail } = require('../utils/emailService');
+const { CreateUserDTO, UpdateUserDTO, UserDTO } = require('../dtos');
+const db = require('../config/db');
 require('dotenv').config();
 
 exports.getUserData = async (req, res) => {
@@ -310,5 +309,177 @@ exports.deleteAccount = async (req, res) => {
     } catch (error) {
         console.error('Error eliminando cuenta:', error);
         res.status(500).json({ error: error.message });
+    }
+};
+
+/**
+ * Obtener lista de usuarios (solo admin)
+ * GET /admin/users?limit=50&offset=0&search=&role=
+ */
+exports.getUsers = async (req, res) => {
+    try {
+        const { limit = 50, offset = 0, search = '', role = '' } = req.query;
+        console.log('getUsers - Params recibidos:', { limit, offset, search, role });
+        
+        let query = `
+            SELECT u.user_id, u.user_name, u.user_lastname, u.user_email, 
+                   u.user_phonenumber, u.is_active, u.created_at,
+                   r.rol_id
+            FROM users u
+        `;
+        
+        // Si se filtra por rol específico, usar INNER JOIN
+        if (role && role !== '0') {
+            query += ` INNER JOIN user_rol r ON u.user_id = r.user_id WHERE 1=1`;
+        } else {
+            query += ` LEFT JOIN user_rol r ON u.user_id = r.user_id WHERE 1=1`;
+        }
+        const params = [];
+        
+        if (search) {
+            const searchPattern = `%${search}%`;
+            query += ` AND (u.user_name LIKE ? OR u.user_lastname LIKE ? OR u.user_email LIKE ?)`;
+            params.push(searchPattern, searchPattern, searchPattern);
+        }
+        
+        if (role) {
+            if (role === '0') {
+                query += ` AND r.rol_id IS NULL`;
+            } else {
+                query += ` AND r.rol_id = ?`;
+                params.push(parseInt(role));
+            }
+        }
+        
+        query += ` ORDER BY u.created_at DESC LIMIT ? OFFSET ?`;
+        params.push(parseInt(limit), parseInt(offset));
+        
+        console.log('getUsers query:', query);
+        console.log('getUsers params:', params);
+            
+        const [users] = await db.query(query, params);
+        
+        // Obtener total para paginación
+        let countQuery = `SELECT COUNT(*) as total FROM users u LEFT JOIN user_rol r ON u.user_id = r.user_id WHERE 1=1`;
+        const countParams = [];
+        
+        if (search) {
+            const searchPattern = `%${search}%`;
+            countQuery += ` AND (u.user_name LIKE ? OR u.user_lastname LIKE ? OR u.user_email LIKE ?)`;
+            countParams.push(searchPattern, searchPattern, searchPattern);
+        }
+        
+        if (role) {
+            if (role === '0') {
+                countQuery += ` AND r.rol_id IS NULL`;
+            } else {
+                countQuery += ` AND r.rol_id = ?`;
+                countParams.push(parseInt(role));
+            }
+        }
+        console.log('getUsers countQuery:', countQuery);
+        console.log('getUsers countParams:', countParams);
+        const [countResult] = await db.query(countQuery, countParams);
+        
+        res.json({
+            success: true,
+            users,
+            total: countResult[0].total,
+            limit: parseInt(limit),
+            offset: parseInt(offset)
+        });
+    } catch (error) {
+        console.error('Error obteniendo usuarios:', error);
+        res.status(500).json({ success: false, error: error.message || 'Error al obtener usuarios' });
+    }
+};
+
+/**
+ * Bloquear usuario (solo admin)
+ * PUT /admin/users/:id/block
+ */
+exports.blockUser = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { reason = 'No especificado' } = req.body;
+        
+        const [result] = await db.query(
+            'UPDATE users SET is_active = FALSE WHERE user_id = ?',
+            [id]
+        );
+        
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ success: false, error: 'Usuario no encontrado' });
+        }
+        
+        await db.query(
+            'INSERT INTO motivo (descripcion, user_id) VALUES (?, ?)',
+            [reason, id]
+        );
+        
+        const [userRows] = await db.query('SELECT user_email, user_name, user_lastname FROM users WHERE user_id = ?', [id]);
+        if (userRows.length > 0) {
+            const { user_email, user_name, user_lastname } = userRows[0];
+            await sendUserBlockEmail(user_email, user_name, user_lastname, reason);
+        }
+        
+        console.log(`Usuario ${id} bloqueado por admin ${req.user.id}. Razón: ${reason}`);
+        
+        res.json({ success: true, message: 'Usuario bloqueado exitosamente' });
+    } catch (error) {
+        console.error('Error bloqueando usuario:', error);
+        res.status(500).json({ success: false, error: 'Error al bloquear usuario' });
+    }
+};
+
+/**
+ * Desbloquear usuario (solo admin)
+ * PUT /admin/users/:id/unblock
+ */
+exports.unblockUser = async (req, res) => {
+    try {
+        const { id } = req.params;
+        
+        const [result] = await db.query(
+            'UPDATE users SET is_active = TRUE WHERE user_id = ?',
+            [id]
+        );
+        
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ success: false, error: 'Usuario no encontrado' });
+        }
+        
+        console.log(`Usuario ${id} desbloqueado por admin ${req.user.id}`);
+        
+        res.json({ success: true, message: 'Usuario desbloqueado exitosamente' });
+    } catch (error) {
+        console.error('Error desbloqueando usuario:', error);
+        res.status(500).json({ success: false, error: 'Error al desbloquear usuario' });
+    }
+};
+
+/**
+ * Desbloquear usuario (solo admin)
+ * PUT /admin/users/:id/unblock
+ */
+exports.unblockUser = async (req, res) => {
+    try {
+        const { id } = req.params;
+        
+        const [result] = await db.query(
+            'UPDATE users SET is_active = TRUE WHERE user_id = ?',
+            [id]
+        );
+        
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ success: false, error: 'Usuario no encontrado' });
+        }
+        
+        console.log(`Usuario ${id} desbloqueado por admin ${req.user.id}`);
+        
+        res.json({ success: true, message: 'Usuario desbloqueado exitosamente' });
+    } catch (error) {
+        console.error('Error desbloqueando usuario:', error);
+        res.status(500).json({ success: false, error: 'Error al desbloquear usuario' });
     }
 };

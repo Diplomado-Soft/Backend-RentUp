@@ -12,7 +12,7 @@ const pool = mysql.createPool({
     queueLimit: 0,
     connectTimeout: 30000,
     enableKeepAlive: true,
-    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: true } : false
+    ssl: { rejectUnauthorized: false }
 });
 
 // Solo probar conexión si no es entorno de test
