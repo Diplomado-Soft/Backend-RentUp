@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { verifyToken, generateAccessToken } = require('../utils/auth');
-const { firebaseLogin, githubRedirect, githubCallback, logout } = require('../controllers/authController');
+const { firebaseLogin, githubRedirect, githubCallback, logout, forgotPassword, resetPassword } = require('../controllers/authController');
 const { RefreshTokenDTO } = require('../dtos');
 
 // Firebase Google Sign-In: recibe Firebase token y devuelve JWT de la app
@@ -69,5 +69,9 @@ router.post('/refresh', (req, res) => {
 });
 
 router.post('/logout', logout);
+
+// Password reset routes
+router.post('/forgot-password', forgotPassword);
+router.post('/reset-password', resetPassword);
 
 module.exports = router;
