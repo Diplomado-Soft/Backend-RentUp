@@ -15,6 +15,7 @@ const FRONT_END_URL = process.env.FRONT_END_URL || 'http://localhost:3000';
  */
 const firebaseLogin = async (req, res) => {
     const requestId = Math.random().toString(36).substring(7);
+
     try {
         // Usar LoginDTO para validación
         const loginDTO = new LoginDTO(req.body);
@@ -30,11 +31,12 @@ const firebaseLogin = async (req, res) => {
 
         const { firebaseToken, rolId, email, nombre, apellido, photoURL } = loginDTO.toFirebaseFormat();
 
+        const validRoles = [1, 2]; // 1=usuario, 2=arrendador
+
         console.log(`\n📝 [${requestId}] Firebase login request:`, {
             hasToken: !!firebaseToken,
-            hasRolId: !!rolId,
-            tokenLength: firebaseToken ? firebaseToken.length : 0,
-            email,
+            rolId,
+            email
         });
 
         // 1. Verificar Firebase token
@@ -63,18 +65,14 @@ const firebaseLogin = async (req, res) => {
         const firebaseEmail = decodedToken.email || email;
 
         if (!firebaseEmail) {
-            console.log(`❌ [${requestId}] No email found in token`);
-            return res.status(400).json({ 
-                error: 'Email is required. Make sure your Google account has a verified email.' 
-            });
+            return res.status(400).json({ error: 'Email requerido' });
         }
 
-        // 2. Buscar usuario en BD por email o Firebase UID
-        console.log(`📍 [${requestId}] Searching for user:`, firebaseEmail);
+        // 🔍 2. Buscar usuario
         let [users] = await db.query(
             `SELECT U.*, UR.rol_id
-             FROM users AS U
-             LEFT JOIN user_rol AS UR ON U.user_id = UR.user_id
+             FROM users U
+             LEFT JOIN user_rol UR ON U.user_id = UR.user_id
              WHERE U.user_email = ? OR U.user_google_id = ?
              LIMIT 1`,
             [firebaseEmail, firebaseUid]
@@ -85,13 +83,30 @@ const firebaseLogin = async (req, res) => {
         let hasRol = false;
         let requiresRoleSelection;
         let appToken;
+        let refreshToken;
 
+
+        // ==============================
+        // 👤 USUARIO EXISTENTE
+        // ==============================
         if (users.length > 0) {
-            // Usuario existente
-            userId = users[0].user_id;
             userData = users[0];
-            console.log(`👤 [${requestId}] Existing user found: ID=${userId}`);
+            userId = userData.user_id;
 
+            console.log(`👤 Usuario existente: ${userId}`);
+
+            // 🔄 Reactivar si estaba eliminado
+            if (!userData.is_active) {
+                console.log(`🔄 Reactivando usuario...`);
+
+                await db.query(
+                    'UPDATE users SET is_active = TRUE WHERE user_id = ?',
+                    [userId]
+                );
+
+                hasRol = false;
+                userData.rol_id = null;
+            }
             // Verificar si la cuenta está bloqueada
              if (users[0].is_active === false || users[0].is_active === 0) {
                  console.log(`[${requestId}] Cuenta bloqueada:`, userId);
@@ -101,118 +116,135 @@ const firebaseLogin = async (req, res) => {
                  });
              }
 
-            // Actualizar Firebase UID si no lo tiene
+            // 🔄 Actualizar datos Google
             if (!userData.user_google_id || !userData.profile_image) {
-                console.log(`🔄 [${requestId}] Updating Firebase UID & profile...`);
                 await db.query(
                     'UPDATE users SET user_google_id = ?, profile_image = ? WHERE user_id = ?',
                     [firebaseUid, photoURL || decodedToken.picture || null, userId]
                 );
             }
-            
-            // Verificar si tiene rol asignado
-            const [rolCheck] = await db.query('SELECT rol_id FROM user_rol WHERE user_id = ?', [userId]);
-            hasRol = rolCheck.length > 0;
-           // if(!hasRol) { console.log(`[${requestId}] Cuenta reactivada sin rol asignado`)}
-        } else {
-            // Usuario nuevo: crear
-            console.log(`✨ [${requestId}] Creating new user:`, firebaseEmail);
+
+            // 🔍 Verificar rol actual
+            const [roles] = await db.query(
+                'SELECT rol_id FROM user_rol WHERE user_id = ?',
+                [userId]
+            );
+
+            hasRol = roles.length > 0;
+
+            // 👉 Si NO tiene rol y VIENE rolId → INSERTAR
+            if (!hasRol && rolId && validRoles.includes(rolId)) {
+                console.log(`🎭 Asignando rol: ${rolId}`);
+
+                await db.query(
+                    `INSERT INTO user_rol (user_id, rol_id, start_date)
+                     VALUES (?, ?, NOW())`,
+                    [userId, rolId]
+                );
+
+                hasRol = true;
+                userData.rol_id = rolId;
+            }
+        }
+
+        // ==============================
+        // 🆕 USUARIO NUEVO
+        // ==============================
+        else {
+            console.log(`✨ Creando usuario nuevo...`);
+
             const [result] = await db.query(
                 `INSERT INTO users (user_name, user_lastname, user_email, user_google_id, profile_image, is_active)
                  VALUES (?, ?, ?, ?, ?, TRUE)`,
-                 [nombre || firebaseEmail.split('@')[0], apellido || '', firebaseEmail, firebaseUid, photoURL || decodedToken.picture || null]
-             );
+                [
+                    nombre || firebaseEmail.split('@')[0],
+                    apellido || '',
+                    firebaseEmail,
+                    firebaseUid,
+                    photoURL || decodedToken.picture || null
+                ]
+            );
 
             userId = result.insertId;
-            console.log(`✅ [${requestId}] New user created: ID=${userId}`);
 
-            if (rolId) {
+            // 🔐 Insertar rol si viene
+            if (rolId && validRoles.includes(rolId)) {
                 await db.query(
-                    `INSERT INTO user_rol (user_id, rol_id, start_date) VALUES (?, ?, NOW())`,
+                    `INSERT INTO user_rol (user_id, rol_id, start_date)
+                     VALUES (?, ?, NOW())`,
                     [userId, rolId]
                 );
+
                 hasRol = true;
             }
 
-            // Enviar correo de bienvenida (no bloquea el registro si falla)
+            // Obtener usuario
+            const [newUser] = await db.query(
+                `SELECT U.*, UR.rol_id
+                 FROM users U
+                 LEFT JOIN user_rol UR ON U.user_id = UR.user_id
+                 WHERE U.user_id = ?`,
+                [userId]
+            );
+
+            userData = newUser[0];
+
+            // 📧 Email bienvenida
             sendWelcomeEmail(
                 firebaseEmail,
                 nombre || firebaseEmail.split('@')[0],
                 apellido || ''
-            ).catch(err =>
-                console.error(`❌ [${requestId}] Error enviando correo de bienvenida:`, err.message || err)
-            );
-
-            // Obtener datos del usuario creado
-            [users] = await db.query(
-                `SELECT U.user_id, U.user_name, U.user_lastname, U.user_email,
-                        U.user_phonenumber, U.whatsapp, U.profile_image, UR.rol_id
-                 FROM users AS U
-                 LEFT JOIN user_rol AS UR ON U.user_id = UR.user_id
-                 WHERE U.user_id = ?`,
-                [userId]
-            );
-            userData = users[0];
+            ).catch(() => {});
         }
 
-        // 3. Generar JWT de la app (no el de Firebase)
-        if(hasRol) {
-            console.log(`🔑 [${requestId}] Generating app JWT...`);
+        // ==============================
+        // 🔑 TOKEN
+        // ==============================
+
+        if (hasRol) {
             appToken = jwt.sign(
-                { id: userId, rol: userData.rol_id || rolId },
+                { id: userId, rol: userData.rol_id },
                 process.env.JWT_SECRET,
-                { expiresIn: process.env.JWT_EXPIRES || '24h' }
+                { expiresIn: '24h' }
             );
-            requiresRoleSelection = false;
+
+            refreshToken = jwt.sign(
+                { id: userId },
+                process.env.JWT_REFRESH_SECRET,
+                { expiresIn: '7d' }
+            );
+
         } else {
-            console.log(`[${requestId}] First Login - require role selection`);
-            appToken = null;
             requiresRoleSelection = true;
         }
 
-        // 4. Devolver datos del usuario y token
-        let userPayload = {
+        // ==============================
+        // 📦 RESPONSE
+        // ==============================
+        const userPayload = {
             id: userId,
             nombre: userData.user_name,
             apellido: userData.user_lastname,
             email: userData.user_email,
-            profile_image: userData.profile_image,
-            telefono: userData.user_phonenumber || null,
-            whatsapp: userData.whatsapp || null,
             photoURL: userData.profile_image,
-            rol: userData.rol_id || null,
+            rol: userData.rol_id || null
         };
 
-        console.log(`✅ [${requestId}] Firebase login successful:`, { userId, requiresRoleSelection, hasRol });
+        console.log(`✅ Login OK`, { hasRol, requiresRoleSelection });
 
-        res.json({
+        return res.json({
             success: true,
             user: userPayload,
             token: appToken,
+            refreshToken,
             requiresRoleSelection
         });
 
     } catch (error) {
-        console.error(`❌ [${requestId}] Unexpected error in Firebase login:`, {
-            message: error.message,
-            code: error.code,
-            stack: error.stack
-        });
-        
-        if (error.message.includes('Firebase')) {
-            return res.status(401).json({ 
-                error: 'Invalid Firebase token',
-                message: error.message 
-            });
-        }
-
-        res.status(500).json({ 
-            error: 'Internal server error',
-            message: process.env.NODE_ENV === 'development' ? error.message : 'Unknown error'
-        });
+        console.error('❌ ERROR:', error);
+        return res.status(500).json({ error: error.message });
     }
 };
-
 /**
  * POST /auth/github (Deprecated - kept for backwards compatibility)
  * Ahora redirige a Firebase Login
