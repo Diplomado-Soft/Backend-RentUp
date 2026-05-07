@@ -4,6 +4,7 @@ const { verifyFirebaseToken, revokeFirebaseToken } = require('../utils/firebaseS
 const { sendWelcomeEmail } = require('../utils/emailService');
 const { use } = require('react');
 const { messaging } = require('firebase-admin');
+const { refreshToken } = require('firebase-admin/app');
 
 const FRONT_END_URL = process.env.FRONT_END_URL || 'http://localhost:3000';
 
@@ -92,7 +93,6 @@ const firebaseLogin = async (req, res) => {
 
             hasRol = roles.length > 0;
 
-            // 🔥 🔥 🔥 SOLUCIÓN CLAVE 🔥 🔥 🔥
             // 👉 Si NO tiene rol y VIENE rolId → INSERTAR
             if (!hasRol && rolId && validRoles.includes(rolId)) {
                 console.log(`🎭 Asignando rol: ${rolId}`);
@@ -168,6 +168,12 @@ const firebaseLogin = async (req, res) => {
                 process.env.JWT_SECRET,
                 { expiresIn: '24h' }
             );
+
+            const refreshToken = jwt.sign(
+                {id: userId},
+                process.env.JWT_REFRESH_SECRET,
+                {expiresIn: '7d'}
+            )
         } else {
             requiresRoleSelection = true;
         }
@@ -190,6 +196,7 @@ const firebaseLogin = async (req, res) => {
             success: true,
             user: userPayload,
             token: appToken,
+            refreshToken,
             requiresRoleSelection
         });
 

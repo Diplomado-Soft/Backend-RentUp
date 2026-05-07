@@ -122,6 +122,12 @@ exports.signup = async (req, res) => {
             rol: newUser.rol_id
         });
 
+        const refreshToken = jwt.sign(
+            {id: user.user_id},
+            process.env.JWT_REFRESH_SECRET,
+            {expiresIn: '7d'}
+        )
+
         res.status(201).json({
             message: 'Usuario registrado exitosamente',
             user: {
@@ -129,7 +135,8 @@ exports.signup = async (req, res) => {
                 email: newUser.user_email,
                 rol: newUser.rol_id
             },
-            token
+            token,
+            refreshToken
         });
 
     } catch (error) {
