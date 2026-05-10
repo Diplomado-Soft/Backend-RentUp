@@ -12,17 +12,21 @@ jest.mock('../../../models/NotificationModel', () => ({
   markAllRead: jest.fn().mockResolvedValue(undefined),
 }));
 
-jest.mock('../../../dtos/CreateNotificationDTO', () => {
-  return jest.fn().mockImplementation((data) => ({
+jest.mock('../../../dtos/NotificationDTO', () => {
+  const CreateNotificationDTO = jest.fn().mockImplementation((data) => ({
     validate: jest.fn().mockReturnValue({ isValid: true, errors: [] }),
     toDatabaseFormat: jest.fn().mockReturnValue(data),
   }));
+  const UpdateNotificationDTO = jest.fn().mockImplementation(() => ({
+    validate: jest.fn().mockReturnValue({ isValid: true, errors: [] }),
+    toDatabaseFormat: jest.fn().mockReturnValue({}),
+  }));
+  const NotificationDTO = {
+    fromDatabase: jest.fn().mockReturnValue({ id: 1 }),
+    fromDatabaseList: jest.fn().mockReturnValue([{ id: 1 }]),
+  };
+  return { CreateNotificationDTO, UpdateNotificationDTO, NotificationDTO };
 });
-
-jest.mock('../../../dtos/NotificationDTO', () => ({
-  fromDatabase: jest.fn().mockReturnValue({ id: 1 }),
-  fromDatabaseList: jest.fn().mockReturnValue([{ id: 1 }]),
-}));
 
 describe('Unit Tests - Notification Controller', () => {
   let req, res;

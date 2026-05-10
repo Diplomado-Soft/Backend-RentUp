@@ -153,6 +153,7 @@ describe('Controller - User Controller', () => {
           rol: 1,
         },
         token: 'mock.jwt.token',
+        refreshToken: expect.any(String),
       });
     });
   });

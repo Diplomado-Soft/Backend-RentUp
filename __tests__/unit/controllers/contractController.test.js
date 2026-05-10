@@ -40,19 +40,20 @@ jest.mock('../../../utils/emailService', () => ({
   sendContractAgreementEmail: jest.fn().mockResolvedValue(true),
 }));
 
-jest.mock('../../../dtos/CreateContractDTO', () => {
-  return jest.fn().mockImplementation((data) => ({
+jest.mock('../../../dtos/ContractDTO', () => ({
+  CreateContractDTO: jest.fn().mockImplementation((data) => ({
     validate: jest.fn().mockReturnValue({ isValid: true, errors: [] }),
     toDatabaseFormat: jest.fn().mockReturnValue(data),
-  }));
-});
-
-jest.mock('../../../dtos/UpdateContractDTO', () => {
-  return jest.fn().mockImplementation((data) => ({
+  })),
+  UpdateContractDTO: jest.fn().mockImplementation((data) => ({
     validate: jest.fn().mockReturnValue({ isValid: true, errors: [] }),
-    toDatabaseFormat: jest.fn().mockReturnValue(data),
-  }));
-});
+    toDatabaseFormat: jest.fn().mockReturnValue({ status: data?.status || 'active' }),
+  })),
+  ContractDTO: {
+    fromDatabase: jest.fn().mockReturnValue({ agreement_id: 1 }),
+    fromDatabaseList: jest.fn().mockReturnValue([{ agreement_id: 1 }]),
+  },
+}));
 
 describe('Unit Tests - Contract Controller', () => {
   let req, res;

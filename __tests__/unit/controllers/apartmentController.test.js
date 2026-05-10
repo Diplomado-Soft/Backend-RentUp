@@ -18,23 +18,19 @@ jest.mock('../../../models/ApartmentModel', () => ({
   addImage: jest.fn().mockResolvedValue({ insertId: 1 }),
 }));
 
-jest.mock('../../../dtos/CreateApartmentDTO', () => {
-  return jest.fn().mockImplementation((data) => ({
-    validate: jest.fn().mockReturnValue({ isValid: true, errors: [] }),
-    toDatabaseFormat: jest.fn().mockReturnValue(data),
-  }));
-});
-
-jest.mock('../../../dtos/UpdateApartmentDTO', () => {
-  return jest.fn().mockImplementation((data) => ({
-    validate: jest.fn().mockReturnValue({ isValid: true, errors: [] }),
-    toDatabaseFormat: jest.fn().mockReturnValue(data),
-  }));
-});
-
 jest.mock('../../../dtos/ApartmentDTO', () => ({
-  fromDatabase: jest.fn().mockReturnValue({ id_apt: 1 }),
-  fromDatabaseList: jest.fn().mockReturnValue([{ id_apt: 1 }]),
+  CreateApartmentDTO: jest.fn().mockImplementation((data) => ({
+    validate: jest.fn().mockReturnValue({ isValid: true, errors: [] }),
+    toDatabaseFormat: jest.fn().mockReturnValue(data),
+  })),
+  UpdateApartmentDTO: jest.fn().mockImplementation(() => ({
+    validate: jest.fn().mockReturnValue({ isValid: true, errors: [] }),
+    toDatabaseFormat: jest.fn().mockReturnValue({}),
+  })),
+  ApartmentDTO: {
+    fromDatabase: jest.fn().mockReturnValue({ id_apt: 1 }),
+    fromDatabaseList: jest.fn().mockReturnValue([{ id_apt: 1 }]),
+  },
 }));
 
 jest.mock('../../../config/db', () => {

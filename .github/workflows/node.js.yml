@@ -2,8 +2,6 @@ name: Node.js CI
 
 on:
   push:
-    branches: [ "main", "develop" ]
-  pull_request:
     branches: [ "main" ]
 
 jobs:
@@ -33,7 +31,6 @@ jobs:
         JWT_SECRET: test-secret-ci
         JWT_EXPIRES: 1h
         JWT_REFRESH_SECRET: test-refresh-ci
-        FRONTEND_URL: http://localhost:3000
 
     - name: Run integration tests
       run: npm run test:integration
@@ -42,7 +39,6 @@ jobs:
         JWT_SECRET: test-secret-ci
         JWT_EXPIRES: 1h
         JWT_REFRESH_SECRET: test-refresh-ci
-        FRONTEND_URL: http://localhost:3000
 
     - name: Run full test suite with coverage
       run: npm test
@@ -51,17 +47,8 @@ jobs:
         JWT_SECRET: test-secret-ci
         JWT_EXPIRES: 1h
         JWT_REFRESH_SECRET: test-refresh-ci
-        FRONTEND_URL: http://localhost:3000
         IDRIVE_BUCKET: test-bucket
         IDRIVE_REGION: us-east-1
         IDRIVE_ENDPOINT: https://s3.us-east-1.idrivee2.com
         IDRIVE_ACCESS_KEY: test-key
         IDRIVE_SECRET_KEY: test-secret
-
-    - name: Upload coverage report
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: coverage-report
-        path: coverage/
-        retention-days: 14
