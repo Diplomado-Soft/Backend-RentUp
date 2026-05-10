@@ -14,6 +14,11 @@ class ApartmentDTO {
         this.bathrooms = apartment.bathrooms;
         this.area_m2 = apartment.area_m2;
         this.user_id = apartment.user_id;
+
+        // contacto del propietario
+        this.user_phonenumber = apartment.user_phonenumber;
+        this.whatsapp = apartment.whatsapp;
+
         this.images = apartment.images || [];
     }
 

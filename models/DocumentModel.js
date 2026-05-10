@@ -16,6 +16,7 @@ class Document {
                     u.user_lastname,
                     u.user_email,
                     u.user_phonenumber,
+                    u.whatsapp,
                     GROUP_CONCAT(ai.imagen) AS images
                 FROM apartments AS a
                 LEFT JOIN barrio AS b ON a.id_barrio = b.id_barrio
