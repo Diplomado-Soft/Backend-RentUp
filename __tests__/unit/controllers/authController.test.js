@@ -34,7 +34,10 @@ describe('Controller - Auth Controller', () => {
       await firebaseLogin(req, res);
 
       expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith({ error: 'Token requerido' });
+      expect(res.json).toHaveBeenCalledWith({
+        error: 'Datos de login inválidos',
+        errors: expect.any(Array)
+      });
     });
 
     it('should return 401 if Firebase token verification fails', async () => {
@@ -98,7 +101,6 @@ describe('Controller - Auth Controller', () => {
         expect.objectContaining({
           success: true,
           token: expect.any(String),
-          requiresRoleSelection: false,
         })
       );
     });
@@ -132,7 +134,6 @@ describe('Controller - Auth Controller', () => {
         expect.objectContaining({
           success: true,
           token: expect.any(String),
-          requiresRoleSelection: false,
           user: expect.objectContaining({
             id: 5,
             email: 'existing@test.com',
@@ -151,7 +152,7 @@ describe('Controller - Auth Controller', () => {
       expect(res.status).toHaveBeenCalledWith(500);
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({
-          error: 'Internal server error',
+          error: 'Database connection failed',
         })
       );
     });

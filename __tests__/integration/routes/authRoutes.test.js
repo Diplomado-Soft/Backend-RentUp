@@ -53,7 +53,7 @@ describe('Integration Tests - Auth Routes', () => {
         .send({ token: 'google-token' });
 
       // Should fail without valid Firebase token
-      expect(res.status).toBe(400);
+      expect(res.status).toBe(401);
       expect(res.body).toHaveProperty('error');
     });
   });

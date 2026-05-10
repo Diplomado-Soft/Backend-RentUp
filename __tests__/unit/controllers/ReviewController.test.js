@@ -41,23 +41,19 @@ jest.mock('../../../utils/aiAnalysisService', () => ({
   analyzeReview: jest.fn().mockResolvedValue({ sentiment: 'positive', score: 0.8 }),
 }));
 
-jest.mock('../../../dtos/CreateReviewDTO', () => {
-  return jest.fn().mockImplementation((data) => ({
-    validate: jest.fn().mockReturnValue({ isValid: true, errors: [] }),
-    toDatabaseFormat: jest.fn().mockReturnValue(data),
-  }));
-});
-
-jest.mock('../../../dtos/UpdateReviewDTO', () => {
-  return jest.fn().mockImplementation((data) => ({
-    validate: jest.fn().mockReturnValue({ isValid: true, errors: [] }),
-    toDatabaseFormat: jest.fn().mockReturnValue(data),
-  }));
-});
-
 jest.mock('../../../dtos/ReviewDTO', () => ({
-  fromDatabase: jest.fn().mockReturnValue({ review_id: 1 }),
-  fromDatabaseList: jest.fn().mockReturnValue([{ review_id: 1 }]),
+  CreateReviewDTO: jest.fn().mockImplementation((data) => ({
+    validate: jest.fn().mockReturnValue({ isValid: true, errors: [] }),
+    toDatabaseFormat: jest.fn().mockReturnValue(data),
+  })),
+  UpdateReviewDTO: jest.fn().mockImplementation(() => ({
+    validate: jest.fn().mockReturnValue({ isValid: true, errors: [] }),
+    toDatabaseFormat: jest.fn().mockReturnValue({}),
+  })),
+  ReviewDTO: {
+    fromDatabase: jest.fn().mockReturnValue({ review_id: 1 }),
+    fromDatabaseList: jest.fn().mockReturnValue([{ review_id: 1 }]),
+  },
 }));
 
 describe('Unit Tests - Review Controller', () => {

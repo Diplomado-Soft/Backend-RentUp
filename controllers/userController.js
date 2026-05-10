@@ -1,3 +1,4 @@
+const jwt = require('jsonwebtoken');
 const User = require('../models/userModel');
 const bcrypt = require('bcryptjs');
 const { generateToken } = require('../utils/auth');
@@ -122,7 +123,7 @@ exports.signup = async (req, res) => {
         });
 
         const refreshToken = jwt.sign(
-            {id: user.user_id},
+            {id: newUser.user_id},
             process.env.JWT_REFRESH_SECRET,
             {expiresIn: '7d'}
         )
