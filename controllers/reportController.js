@@ -1,5 +1,6 @@
 const Contract = require('../models/ContractModel');
 const PDFDocument = require('pdfkit');
+const db = require('../config/db');
 
 const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
     'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
@@ -141,6 +142,25 @@ exports.generateMonthlyReport = async (req, res) => {
             .text(`RentUP — Reporte generado automáticamente el ${new Date().toLocaleString('es-CO')}`,
                 { align: 'center' });
 
+        doc.on('finish', async () => {
+            try {
+                await db.query(
+                    `INSERT INTO monthly_reports (year, month, report_path, generated_at, summary_data)
+                    VALUES (?, ?, ?, NOW(), ?)
+                    ON DUPLICATE KEY UPDATE report_path = VALUES(report_path), generated_at = NOW(), summary_data = VALUES(summary_data)`,
+                    [targetYear, targetMonth, filename, JSON.stringify({
+                        total_contracts: stats?.total_contracts || 0,
+                        active_contracts: stats?.active_contracts || 0,
+                        total_revenue: stats?.total_revenue || 0,
+                        total_landlords: stats?.total_landlords || 0,
+                        total_tenants: stats?.total_tenants || 0
+                    })]
+                );
+            } catch (dbErr) {
+                console.error('❌ Error guardando en monthly_reports:', dbErr.message);
+            }
+        });
+
         doc.end();
     } catch (error) {
         console.error('❌ Error generando reporte PDF:', error);
@@ -152,14 +172,18 @@ exports.generateMonthlyReport = async (req, res) => {
 
 exports.getAvailableReports = async (req, res) => {
     try {
-        const reports = [];
-        const currentDate = new Date();
-        for (let i = 0; i < 12; i++) {
-            const date  = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
-            const year  = date.getFullYear();
-            const month = date.getMonth() + 1;
-            reports.push({ year, month, monthName: monthNames[month - 1], available: true });
-        }
+        const [rows] = await db.query(
+            'SELECT year, month, report_path, generated_at, summary_data FROM monthly_reports ORDER BY year DESC, month DESC'
+        );
+        const reports = rows.map(r => ({
+            year: r.year,
+            month: r.month,
+            monthName: monthNames[r.month - 1],
+            reportPath: r.report_path,
+            generatedAt: r.generated_at,
+            summary: r.summary_data,
+            available: !!r.report_path
+        }));
         res.json(reports);
     } catch (error) {
         console.error('Error obteniendo reportes:', error);

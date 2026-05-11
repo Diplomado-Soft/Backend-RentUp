@@ -12,8 +12,12 @@ jest.mock('../../../config/db', () => {
   return mockDb;
 });
 
+jest.mock('../../../models/RolModel', () => ({
+  getAll: jest.fn(),
+}));
+
 describe('Controller - Auth Controller', () => {
-  let req, res, db, verifyFirebaseToken;
+  let req, res, db, verifyFirebaseToken, Rol;
 
   beforeEach(() => {
     req = { body: {} };
@@ -26,11 +30,14 @@ describe('Controller - Auth Controller', () => {
     process.env.JWT_EXPIRES = '1h';
 
     db = require('../../../config/db');
+    Rol = require('../../../models/RolModel');
     verifyFirebaseToken = require('../../../utils/firebaseService').verifyFirebaseToken;
   });
 
   describe('firebaseLogin', () => {
     it('should return 400 if firebaseToken is missing', async () => {
+      Rol.getAll.mockResolvedValue([{ rol_id: 1, rol: 'usuario' }, { rol_id: 2, rol: 'arrendador' }]);
+
       await firebaseLogin(req, res);
 
       expect(res.status).toHaveBeenCalledWith(400);
@@ -43,6 +50,7 @@ describe('Controller - Auth Controller', () => {
     it('should return 401 if Firebase token verification fails', async () => {
       req.body = { firebaseToken: 'invalid-token' };
       verifyFirebaseToken.mockRejectedValue(new Error('Invalid token'));
+      Rol.getAll.mockResolvedValue([{ rol_id: 1, rol: 'usuario' }, { rol_id: 2, rol: 'arrendador' }]);
 
       await firebaseLogin(req, res);
 
@@ -57,6 +65,7 @@ describe('Controller - Auth Controller', () => {
     it('should return 400 if no email in decoded token', async () => {
       req.body = { firebaseToken: 'valid-token' };
       verifyFirebaseToken.mockResolvedValue({ uid: 'abc123' });
+      Rol.getAll.mockResolvedValue([{ rol_id: 1, rol: 'usuario' }, { rol_id: 2, rol: 'arrendador' }]);
 
       await firebaseLogin(req, res);
 
@@ -78,6 +87,7 @@ describe('Controller - Auth Controller', () => {
       };
 
       verifyFirebaseToken.mockResolvedValue(mockFirebaseData);
+      Rol.getAll.mockResolvedValue([{ rol_id: 1, rol: 'usuario' }, { rol_id: 2, rol: 'arrendador' }]);
 
       db.query
         .mockResolvedValueOnce([[]]) // 1. search existing
@@ -113,6 +123,7 @@ describe('Controller - Auth Controller', () => {
 
       req.body = { firebaseToken: 'valid-token' };
       verifyFirebaseToken.mockResolvedValue(mockFirebaseData);
+      Rol.getAll.mockResolvedValue([{ rol_id: 1, rol: 'usuario' }, { rol_id: 2, rol: 'arrendador' }]);
 
       db.query
         .mockResolvedValueOnce([[{
@@ -145,6 +156,7 @@ describe('Controller - Auth Controller', () => {
     it('should handle 500 error on unexpected failures', async () => {
       req.body = { firebaseToken: 'valid-token' };
       verifyFirebaseToken.mockResolvedValue({ uid: 'abc123', email: 'test@test.com' });
+      Rol.getAll.mockResolvedValue([{ rol_id: 1, rol: 'usuario' }, { rol_id: 2, rol: 'arrendador' }]);
       db.query.mockRejectedValue(new Error('Database connection failed'));
 
       await firebaseLogin(req, res);

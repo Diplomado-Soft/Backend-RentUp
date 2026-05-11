@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const db = require('../config/db');
+const Rol = require('../models/RolModel');
 const { verifyFirebaseToken, revokeFirebaseToken } = require('../utils/firebaseService');
 const { sendWelcomeEmail, sendPasswordResetEmail } = require('../utils/emailService');
 const { sendPasswordResetSMS } = require('../utils/smsService');
@@ -31,7 +32,8 @@ const firebaseLogin = async (req, res) => {
 
         const { firebaseToken, rolId, email, nombre, apellido, photoURL } = loginDTO.toFirebaseFormat();
 
-        const validRoles = [1, 2]; // 1=usuario, 2=arrendador
+        const allRoles = await Rol.getAll();
+        const validRoleIds = allRoles.filter(r => r.rol !== 'admin').map(r => r.rol_id);
 
         console.log(`\n📝 [${requestId}] Firebase login request:`, {
             hasToken: !!firebaseToken,
@@ -133,7 +135,7 @@ const firebaseLogin = async (req, res) => {
             hasRol = roles.length > 0;
 
             // 👉 Si NO tiene rol y VIENE rolId → INSERTAR
-            if (!hasRol && rolId && validRoles.includes(rolId)) {
+            if (!hasRol && rolId && validRoleIds.includes(rolId)) {
                 console.log(`🎭 Asignando rol: ${rolId}`);
 
                 await db.query(
@@ -168,7 +170,7 @@ const firebaseLogin = async (req, res) => {
             userId = result.insertId;
 
             // 🔐 Insertar rol si viene
-            if (rolId && validRoles.includes(rolId)) {
+            if (rolId && validRoleIds.includes(rolId)) {
                 await db.query(
                     `INSERT INTO user_rol (user_id, rol_id, start_date)
                      VALUES (?, ?, NOW())`,

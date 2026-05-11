@@ -1,67 +1,81 @@
 /**
  * Location Configuration
  * Define coordinates and search radius for Institución Universitaria del Putumayo (Uniputumayo)
- * 
- * Sprint: #24 - Coordenadas de referencia de Uniputumayo
- * Last verified: April 19, 2026
- * Source: GPS coordinates verification
+ * Reads from geolocation_config table with fallback to hardcoded defaults.
  */
 
-const LOCATION_CONFIG = {
-    // Institución Universitaria del Putumayo
+const db = require('./db');
+
+const HARDCODED = {
     UNIPUTUMAYO: {
         name: 'Institución Universitaria del Putumayo',
         latitude: -1.1512,
         longitude: -76.6488,
         description: 'Central reference point for apartment searches and distance filters'
     },
-
-    // Default search radius options (in kilometers)
     SEARCH_RADIUS: {
-        SMALL: 1,      // 1 km - nearby apartments
-        MEDIUM: 2,     // 2 km - walking distance
-        LARGE: 5,      // 5 km - short drive
-        EXTRA_LARGE: 10 // 10 km - extended area
+        SMALL: 1,
+        MEDIUM: 2,
+        LARGE: 5,
+        EXTRA_LARGE: 10
     },
-
-    // Default radius used if not specified
-    DEFAULT_RADIUS_KM: 2,
-
-    // Verification metadata
-    VERIFICATION: {
-        coordinatesVerified: true,
-        verificationDate: '2026-04-19',
-        verificationMethod: 'GPS coordinates',
-        latitude: -1.1512,
-        longitude: -76.6488
-    }
+    DEFAULT_RADIUS_KM: 2
 };
 
-/**
- * Get Uniputumayo configuration
- * @returns {Object} Uniputumayo location object
- */
-function getUniputumayoCoordinates() {
+let cached = null;
+
+async function loadFromDB() {
+    try {
+        const [rows] = await db.query(
+            'SELECT name, latitude, longitude, radius_km FROM geolocation_config WHERE is_active = 1 LIMIT 1'
+        );
+        if (rows.length > 0) {
+            cached = {
+                name: rows[0].name,
+                latitude: parseFloat(rows[0].latitude),
+                longitude: parseFloat(rows[0].longitude),
+                radiusKm: parseFloat(rows[0].radius_km)
+            };
+            return true;
+        }
+    } catch {
+    }
+    return false;
+}
+
+async function ensureConfig() {
+    if (!cached) {
+        const loaded = await loadFromDB();
+        if (!loaded) {
+            cached = {
+                name: HARDCODED.UNIPUTUMAYO.name,
+                latitude: HARDCODED.UNIPUTUMAYO.latitude,
+                longitude: HARDCODED.UNIPUTUMAYO.longitude,
+                radiusKm: HARDCODED.DEFAULT_RADIUS_KM
+            };
+        }
+    }
+    return cached;
+}
+
+async function getUniputumayoCoordinates() {
+    const config = await ensureConfig();
     return {
-        latitude: LOCATION_CONFIG.UNIPUTUMAYO.latitude,
-        longitude: LOCATION_CONFIG.UNIPUTUMAYO.longitude,
-        name: LOCATION_CONFIG.UNIPUTUMAYO.name
+        latitude: config.latitude,
+        longitude: config.longitude,
+        name: config.name
     };
 }
 
-/**
- * Get available search radius options
- * @returns {Object} All available radius options
- */
-function getRadiusOptions() {
-    return LOCATION_CONFIG.SEARCH_RADIUS;
+async function getDefaultRadius() {
+    const config = await ensureConfig();
+    return config.radiusKm;
 }
 
-/**
- * Validate if radius is within allowed range
- * @param {number} radiusKm - Radius in kilometers
- * @returns {boolean} True if valid
- */
+function getRadiusOptions() {
+    return HARDCODED.SEARCH_RADIUS;
+}
+
 function isValidRadius(radiusKm) {
     const min = 0.5;
     const max = 50;
@@ -69,8 +83,9 @@ function isValidRadius(radiusKm) {
 }
 
 module.exports = {
-    LOCATION_CONFIG,
     getUniputumayoCoordinates,
+    getDefaultRadius,
     getRadiusOptions,
-    isValidRadius
+    isValidRadius,
+    ensureConfig
 };

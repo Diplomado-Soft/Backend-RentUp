@@ -3,6 +3,7 @@ const Contract = require('../models/ContractModel');
 const PDFDocument = require('pdfkit');
 const fs = require('fs');
 const path = require('path');
+const db = require('../config/db');
 
 const REPORTS_DIR = path.join(__dirname, '../reports');
 if (!fs.existsSync(REPORTS_DIR)) {
@@ -132,8 +133,26 @@ async function generateMonthlyReportForPreviousMonth() {
         });
 
         console.log(`[CRON] ✅ Reporte PDF guardado: ${filename}`);
+
+        try {
+            await db.query(
+                `INSERT INTO monthly_reports (year, month, report_path, generated_at, summary_data)
+                VALUES (?, ?, ?, NOW(), ?)
+                ON DUPLICATE KEY UPDATE report_path = VALUES(report_path), generated_at = NOW(), summary_data = VALUES(summary_data)`,
+                [targetYear, targetMonth, filepath, JSON.stringify({
+                    total_contracts: stats.total_contracts || 0,
+                    active_contracts: stats.active_contracts || 0,
+                    total_revenue: stats.total_revenue || 0,
+                    total_landlords: stats.total_landlords || 0,
+                    total_tenants: stats.total_tenants || 0
+                })]
+            );
+            console.log(`[CRON] Reporte registrado en monthly_reports: ${targetYear}-${targetMonth}`);
+        } catch (dbErr) {
+            console.error('[CRON] Error guardando en monthly_reports:', dbErr.message);
+        }
     } catch (error) {
-        console.error('[CRON] ❌ Error generando reporte PDF:', error);
+        console.error('[CRON] Error generando reporte PDF:', error);
     }
 }
 

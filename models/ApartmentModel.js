@@ -33,8 +33,8 @@ class Apartment {
             // 3. Insertar apartamento usando el ID del usuario (viene del middleware de autenticación)
             const [apartmentResult] = await connection.query(
                 `INSERT INTO apartments 
-                    (id_barrio, direccion_apt, latitud_apt, longitud_apt, info_add_apt, user_id, price, bedrooms, bathrooms, area_m2, status, created_date)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+                    (id_barrio, direccion_apt, latitud_apt, longitud_apt, info_add_apt, user_id, price, bedrooms, bathrooms, area_m2, status, publication_status, created_date)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'available', 'pending', NOW())`,
                 [
                     barrioId,
                     data.direccion,
@@ -45,8 +45,7 @@ class Apartment {
                     data.price || null,
                     data.bedrooms || null,
                     data.bathrooms || null,
-                    data.area_m2 || null,
-                    'pending'
+                    data.area_m2 || null
                 ]
             );
 
@@ -230,7 +229,7 @@ class Apartment {
                 
                 // Agregar info de publicación para que el landlord vea el estado
                 apartment.publicationInfo = {
-                    status: apartment.status || 'pending',
+                    status: apartment.publication_status || 'pending',
                     notes: apartment.admin_notes,
                     publishedDate: apartment.published_date,
                     createdDate: apartment.created_date
@@ -322,6 +321,7 @@ class Apartment {
                 LEFT JOIN users AS u ON a.user_id = u.user_id
                 LEFT JOIN apartment_images AS ai ON a.id_apt = ai.id_apt
                 WHERE (a.status = 'available' OR a.status IS NULL) AND a.status = 'available'
+                AND a.publication_status = 'approved'
                 AND NOT EXISTS (
                     SELECT 1 FROM rental_agreements r 
                     WHERE r.property_id = a.id_apt AND r.status = 'active'
@@ -409,7 +409,7 @@ class Apartment {
                 LEFT JOIN barrio b ON a.id_barrio = b.id_barrio
                 LEFT JOIN users u ON a.user_id = u.user_id
                 LEFT JOIN apartment_images ai ON a.id_apt = ai.id_apt
-                WHERE a.status = 'pending'
+                WHERE a.publication_status = 'pending'
                 GROUP BY a.id_apt
                 ORDER BY a.created_date ASC
                 LIMIT ? OFFSET ?`,
@@ -426,7 +426,7 @@ class Apartment {
             }
 
             const [countResult] = await connection.query(
-                'SELECT COUNT(*) as total FROM apartments WHERE status = \'pending\''
+                'SELECT COUNT(*) as total FROM apartments WHERE publication_status = \'pending\''
             );
 
             return {
@@ -452,10 +452,10 @@ class Apartment {
             );
             const landlordId = aptInfo[0]?.user_id;
 
-            // Actualizar estado del apartamento
+            // Actualizar estado de publicación del apartamento
             const [updateResult] = await connection.query(
                 `UPDATE apartments 
-                SET status = 'available', 
+                SET publication_status = 'approved', 
                     admin_notes = ?, 
                     published_date = NOW(),
                     updated_date = NOW()
@@ -534,10 +534,10 @@ class Apartment {
             );
             const landlordId = aptInfo[0]?.user_id;
 
-            // Actualizar estado del apartamento
+            // Actualizar estado de publicación del apartamento
             const [updateResult] = await connection.query(
                 `UPDATE apartments 
-                SET status = 'rented', 
+                SET publication_status = 'rejected', 
                     admin_notes = ?, 
                     updated_date = NOW()
                 WHERE id_apt = ?`,
@@ -633,7 +633,7 @@ class Apartment {
         const connection = await db.getConnection();
         try {
             const [result] = await connection.query(
-                `SELECT id_apt, status as publication_status, admin_notes, published_date, created_date 
+                `SELECT id_apt, publication_status, admin_notes, published_date, created_date 
                 FROM apartments 
                 WHERE id_apt = ?`,
                 [id_apt]
@@ -646,13 +646,14 @@ class Apartment {
 
     static async getApartmentsWithFilter(filters = {}) {
         const { getValidSignedUrl } = require('../services/urlRefreshService');
-        const { calculateDistance, UNIPUTUMAYO_CONFIG } = require('../utils/geolocationUtils');
+        const geo = require('../utils/geolocationUtils');
+        const geoConfig = await geo.getUniputumayoConfig();
         
-        let whereClause = "WHERE (a.status = 'available' OR a.status IS NULL) AND a.status = 'available' AND NOT EXISTS (SELECT 1 FROM rental_agreements r WHERE r.property_id = a.id_apt AND r.status = 'active')";
+        let whereClause = "WHERE (a.status = 'available' OR a.status IS NULL) AND a.status = 'available' AND a.publication_status = 'approved' AND NOT EXISTS (SELECT 1 FROM rental_agreements r WHERE r.property_id = a.id_apt AND r.status = 'active')";
         const params = [];
 
         if (filters.nearUniversity) {
-            const radius = filters.radiusKm || UNIPUTUMAYO_CONFIG.radiusKm;
+            const radius = filters.radiusKm || geoConfig.radiusKm;
             whereClause += ` AND a.latitud_apt IS NOT NULL AND a.longitud_apt IS NOT NULL`;
         }
 
@@ -723,9 +724,9 @@ class Apartment {
                 
                 if (apartment.latitud_apt && apartment.longitud_apt) {
                     apartment.distance_km = parseFloat(
-                        calculateDistance(
-                            UNIPUTUMAYO_CONFIG.latitude,
-                            UNIPUTUMAYO_CONFIG.longitude,
+                        geo.calculateDistance(
+                            geoConfig.latitude,
+                            geoConfig.longitude,
                             apartment.latitud_apt,
                             apartment.longitud_apt
                         ).toFixed(2)
@@ -737,7 +738,7 @@ class Apartment {
         );
 
         if (filters.nearUniversity) {
-            const radius = filters.radiusKm || UNIPUTUMAYO_CONFIG.radiusKm;
+            const radius = filters.radiusKm || geoConfig.radiusKm;
             processedResults = processedResults.filter(apt => 
                 apt.distance_km <= radius
             );

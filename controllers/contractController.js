@@ -42,13 +42,15 @@ exports.createContract = async (req, res) => {
             [dtoData.id_apt]
         );
 
+        const { start_date, end_date, monthly_rent } = dtoData;
+
         // Enviar correo al inquilino
         if (tenantData.length > 0) {
             sendContractAgreementEmail(
                 tenantData[0].user_email,
                 tenantData[0].user_name,
                 tenantData[0].user_lastname,
-                aptData[0]?.apt_name || 'Vivienda',
+                aptData[0]?.direccion_apt || 'Vivienda',
                 new Date(start_date).toLocaleDateString(),
                 new Date(end_date).toLocaleDateString(),
                 monthly_rent
@@ -61,7 +63,7 @@ exports.createContract = async (req, res) => {
                 landlordData[0].user_email,
                 landlordData[0].user_name,
                 landlordData[0].user_lastname,
-                aptData[0]?.apt_name || 'Vivienda',
+                aptData[0]?.direccion_apt || 'Vivienda',
                 new Date(start_date).toLocaleDateString(),
                 new Date(end_date).toLocaleDateString(),
                 monthly_rent
