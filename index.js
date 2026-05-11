@@ -230,6 +230,16 @@ function isPortInUse(port) {
             console.warn('⚠️ Advertencia inicializando modelos:', modelErr.message);
         }
 
+        // 2d. Cargar configuración de geolocalización
+        try {
+            console.log('Cargando configuración de geolocalización...');
+            const { ensureConfig } = require('./config/locationConfig');
+            await ensureConfig();
+            console.log('Configuración de geolocalización cargada');
+        } catch (geoErr) {
+            console.warn('Usando configuración de geolocalización por defecto:', geoErr.message);
+        }
+
         // 3. Verificar conexión a IDrive e2
         try {
             console.log('🔄 Verificando conexión a IDrive e2...');

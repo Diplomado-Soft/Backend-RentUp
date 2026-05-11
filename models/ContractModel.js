@@ -61,7 +61,7 @@ class Contract {
             `SELECT a.id_apt, a.direccion_apt, b.barrio, a.price, a.status as apt_status
             FROM apartments a
             LEFT JOIN barrio b ON a.id_barrio = b.id_barrio
-            WHERE a.user_id = ? AND a.status = 'available'
+            WHERE a.user_id = ? AND a.status = 'available' AND a.publication_status = 'approved'
             ORDER BY a.direccion_apt`,
             [landlord_id]
         );
@@ -153,12 +153,20 @@ class Contract {
 
                 if (contractInfo.length > 0) {
                     const property_id = contractInfo[0].property_id;
-                    let apartmentStatus = 'available';
 
-                    await connection.execute(
-                        'UPDATE apartments SET status = ? WHERE id_apt = ?',
-                        [apartmentStatus, property_id]
-                    );
+                    if (status === 'terminated' || status === 'expired') {
+                        const [otherActive] = await connection.query(
+                            'SELECT agreement_id FROM rental_agreements WHERE property_id = ? AND status = \'active\' AND agreement_id != ?',
+                            [property_id, id_contract]
+                        );
+
+                        if (otherActive.length === 0) {
+                            await connection.execute(
+                                'UPDATE apartments SET status = ? WHERE id_apt = ?',
+                                ['available', property_id]
+                            );
+                        }
+                    }
                 }
             }
 
