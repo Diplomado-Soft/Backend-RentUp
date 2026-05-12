@@ -301,7 +301,7 @@ const forgotPassword = async (req, res) => {
             );
             
             if (userRows.length === 0) {
-                return res.json({ success: true, hasPhone: false, message: 'Si el email está registrado, recibirás instrucciones' });
+                return res.json({ success: true, message: 'Si el email está registrado, recibirás instrucciones' });
             }
             
             const user = userRows[0];
@@ -310,8 +310,7 @@ const forgotPassword = async (req, res) => {
             return res.json({
                 success: true,
                 hasPhone,
-                userId: user.user_id,
-                maskedPhone: hasPhone ? user.user_phonenumber.replace(/(\d{3})\d{6}(\d{2})/, '$1******$2') : null
+                message: 'Si el email está registrado, recibirás instrucciones'
             });
         }
         

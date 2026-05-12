@@ -55,17 +55,16 @@ exports.createReview = async (req, res) => {
       verified_booking
     });
 
-    // ===== T-13: Análisis de IA con Ollama (Asincrónico) =====
+    // ===== T-13: Análisis de sentimiento con IA (Asincrónico) =====
     const { comment: reviewComment, rating: reviewRating } = dtoData;
     (async () => {
       try {
-        console.log(`🤖 [T-13] Iniciando análisis con Ollama para review ${review.review_id}...`);
+        console.log(`[T-13] Analizando sentimiento para review ${review.review_id}...`);
         const analysis = await AIAnalysisService.processReviewAnalysis(
           reviewComment || '',
           reviewRating
         );
 
-        // Guardar resultado en BD
         await Review.updateSentimentAnalysis(review.review_id, {
           sentiment: analysis.sentiment?.sentiment || 'neutral',
           sentiment_score: analysis.sentiment?.score || 3,
@@ -74,7 +73,6 @@ exports.createReview = async (req, res) => {
           analyzed_at: new Date()
         });
 
-        // Registrar en historial
         if (analysis.moderation?.requires_moderation) {
           await Review.logModerationAction(
             review.review_id,
@@ -82,11 +80,10 @@ exports.createReview = async (req, res) => {
             'ai_flagged',
             `IA Flags: ${analysis.moderation.flags.join(', ')} (${analysis.moderation.severity})`
           );
-          // Notificación in-app para admins (usar CreateNotificationDTO)
           const notificationDTO = new CreateNotificationDTO({
-            user_id: 0, // createForAdmins maneja múltiples admins
+            user_id: 0,
             type: 'review_flagged',
-            title: '🚩 Reseña flaggeada por IA',
+            title: 'Reseña flaggeada por IA',
             message: `La IA detectó contenido en una reseña: ${analysis.moderation.reason || analysis.moderation.flags.join(', ')}`,
             reference_id: review.review_id,
             reference_type: 'review'
@@ -95,16 +92,15 @@ exports.createReview = async (req, res) => {
           const notifValidation = notificationDTO.validate();
           if (notifValidation.isValid) {
             const dtoData = notificationDTO.toDatabaseFormat();
-            delete dtoData.user_id; // createForAdmins no espera user_id
+            delete dtoData.user_id;
             await Notification.createForAdmins(dtoData);
           }
-          console.log(`⚠️ [T-13] Review ${review.review_id} flagged: ${analysis.moderation.reason}`);
+          console.log(`[T-13] Review ${review.review_id} flagged: ${analysis.moderation.reason}`);
         } else {
-          console.log(`✅ [T-13] Review ${review.review_id} analizada - Sentimiento: ${analysis.sentiment?.sentiment}`);
+          console.log(`[T-13] Review ${review.review_id} analizada - Sentimiento: ${analysis.sentiment?.sentiment}`);
         }
       } catch (analysisError) {
-        console.error(`❌ [T-13] Error analizando review ${review.review_id}:`, analysisError.message);
-        // No afecta creación, solo log
+        console.error(`[T-13] Error analizando review ${review.review_id}:`, analysisError.message);
       }
     })();
 
@@ -473,13 +469,12 @@ exports.rejectReview = async (req, res) => {
 };
 
 /**
- * POST /admin/reviews/analyze-batch - Analizar reviews sin analizar con Ollama IA
+ * POST /admin/reviews/analyze-batch - Analizar reviews sin analizar con IA
  */
 exports.analyzeBatch = async (req, res) => {
   try {
     const user_role = req.user.rol_id || req.user.userRole;
 
-    // Solo admins
     if (user_role !== 3) {
       return res.status(403).json({
         success: false,
@@ -487,16 +482,15 @@ exports.analyzeBatch = async (req, res) => {
       });
     }
 
-    // Verificar que Ollama está disponible
-    const ollamaHealth = await AIAnalysisService.isOllamaRunning();
-    if (!ollamaHealth) {
+    const aiHealth = await AIAnalysisService.isServiceRunning();
+    if (!aiHealth) {
       return res.status(503).json({
         success: false,
-        error: 'Ollama IA server no está disponible. Verifica que ollama serve está corriendo en puerto 11434'
+        error: 'Servicio de IA no disponible. El modelo se cargará automáticamente.'
       });
     }
 
-    const unanalyzedReviews = await Review.getUnanalyzedReviews(50); // Limitar a 50 para no sobrecargar Ollama
+    const unanalyzedReviews = await Review.getUnanalyzedReviews(50);
 
     if (unanalyzedReviews.length === 0) {
       return res.json({
@@ -507,66 +501,59 @@ exports.analyzeBatch = async (req, res) => {
       });
     }
 
-    console.log(`🤖 [T-13] Iniciando análisis en batch de ${unanalyzedReviews.length} reviews con Ollama...`);
-
-    // Preparar datos para batch
-    const reviewsForAnalysis = unanalyzedReviews.map(r => ({
-      id: r.review_id,
-      text: r.comment,
-      rating: r.rating
-    }));
-
-    // Analizar en batch
-    const results = await AIAnalysisService.batchAnalyzeReviews(reviewsForAnalysis);
+    console.log(`Iniciando análisis batch de ${unanalyzedReviews.length} reviews...`);
 
     let analyzed = 0;
     let flagged = 0;
     let errors = 0;
 
-    // Guardar resultados en BD
-    for (const result of results) {
+    for (const review of unanalyzedReviews) {
       try {
-        if (result.status === 'analyzed') {
-          await Review.updateSentimentAnalysis(result.review_id, {
-            sentiment: result.sentiment?.sentiment || 'neutral',
-            sentiment_score: result.sentiment?.score || 3,
-            moderation_flag: result.moderation?.requires_moderation || false,
-            flag_reason: result.moderation?.reason || null,
+        const analysis = await AIAnalysisService.processReviewAnalysis(
+          review.comment || '',
+          review.rating
+        );
+
+        if (analysis.status === 'analyzed') {
+          await Review.updateSentimentAnalysis(review.review_id, {
+            sentiment: analysis.sentiment?.sentiment || 'neutral',
+            sentiment_score: analysis.sentiment?.score || 3,
+            moderation_flag: analysis.moderation?.requires_moderation || false,
+            flag_reason: analysis.moderation?.reason || null,
             analyzed_at: new Date()
           });
 
-          if (result.moderation?.requires_moderation) {
+          if (analysis.moderation?.requires_moderation) {
             await Review.logModerationAction(
-              result.review_id,
+              review.review_id,
               null,
               'ai_flagged',
-              `IA Flags: ${result.moderation.flags.join(', ')}`
+              `IA Flags: ${analysis.moderation.flags.join(', ')}`
             );
             flagged++;
           }
           analyzed++;
         } else {
           errors++;
-          console.error(`⚠️ Error analizando review ${result.review_id}:`, result.error);
         }
-      } catch (dbError) {
-        console.error(`❌ Error guardando análisis para review ${result.review_id}:`, dbError.message);
+      } catch (reviewError) {
         errors++;
+        console.error(`Error analizando review ${review.review_id}:`, reviewError.message);
       }
     }
 
-    console.log(`✅ [T-13] Batch analysis completado: ${analyzed} analizadas, ${flagged} flagged, ${errors} errores`);
+    console.log(`Batch completado: ${analyzed} analizadas, ${flagged} flagged, ${errors} errores`);
 
     res.json({
-      success: true,  
-      message: `Análisis con Ollama completado: ${analyzed} reviews procesadas`,
+      success: true,
+      message: `Análisis completado: ${analyzed} reviews procesadas`,
       analyzed,
       flagged,
       errors,
       total: unanalyzedReviews.length
     });
   } catch (error) {
-    console.error('❌ Error en análisis batch:', error);
+    console.error('Error en análisis batch:', error);
     res.status(500).json({
       success: false,
       error: error.message || 'Error en análisis batch'
@@ -575,7 +562,7 @@ exports.analyzeBatch = async (req, res) => {
 };
 
 /**
- * GET /admin/ai/health - Verificar estado de Ollama IA
+ * GET /admin/ai/health - Verificar estado del servicio de IA
  */
 exports.checkAIHealth = async (req, res) => {
   try {
@@ -628,8 +615,7 @@ exports.getUserReviews = async (req, res) => {
 };
 
 /**
- * POST /reviews/admin/analyze-pending - Analizar reseñas pendientes con Ollama
- * Este endpoint se puede llamar cuando Ollama se enciende para analizar reseñas pendientes
+ * POST /reviews/admin/analyze-pending - Analizar reseñas pendientes con IA
  */
 exports.analyzePendingReviews = async (req, res) => {
   try {
@@ -642,7 +628,7 @@ exports.analyzePendingReviews = async (req, res) => {
       });
     }
 
-    const { analyzePendingReviews } = require('../services/ollamaAutoAnalysis');
+    const { analyzePendingReviews } = require('../services/sentimentAnalysis');
     
     const result = await analyzePendingReviews({
       batchSize: req.body.batchSize || 50,

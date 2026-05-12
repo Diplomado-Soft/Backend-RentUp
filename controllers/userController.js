@@ -191,10 +191,17 @@ exports.login = async (req, res) => {
             rol: user.rol_id
         };
 
+        const refreshToken = jwt.sign(
+            { id: user.user_id },
+            process.env.JWT_REFRESH_SECRET,
+            { expiresIn: '7d' }
+        );
+
         res.json({
             message: 'Autenticación exitosa',
             user: userData,
-            token
+            token,
+            refreshToken
         });
     } catch (error) {
         console.error('Error en login:', error);
