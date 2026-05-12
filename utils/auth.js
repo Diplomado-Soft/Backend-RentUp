@@ -7,6 +7,12 @@ const generateToken = (payload) => {
     });
 };
 
+const generateAccessToken = (payload) => {
+    return jwt.sign(payload, process.env.JWT_SECRET, {
+        expiresIn: process.env.JWT_EXPIRES || '24h'
+    });
+};
+
 const generateRefreshToken = (payload) => {
     return jwt.sign(payload, process.env.JWT_REFRESH_SECRET, {
         expiresIn: process.env.JWT_REFRESH_EXPIRES || '7d'
@@ -23,4 +29,4 @@ const verifyToken = (token, secret = process.env.JWT_SECRET) => {
     }
 };
 
-module.exports = { generateToken, generateRefreshToken, verifyToken };
+module.exports = { generateToken, generateAccessToken, generateRefreshToken, verifyToken };

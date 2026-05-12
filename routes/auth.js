@@ -3,16 +3,15 @@ const router = express.Router();
 const { verifyToken, generateAccessToken } = require('../utils/auth');
 const { firebaseLogin, githubRedirect, githubCallback, logout, forgotPassword, resetPassword } = require('../controllers/authController');
 const { RefreshTokenDTO } = require('../dtos');
+const { signup } = require('../controllers/userController');
 
 // Firebase Google Sign-In: recibe Firebase token y devuelve JWT de la app
 router.post('/firebase-login', firebaseLogin);
 router.post('/login', firebaseLogin);
 router.post('/google', firebaseLogin);
 
-// Register: not implemented
-router.post('/register', (req, res) => {
-    res.status(501).json({ error: 'Not implemented' });
-});
+// Register: redirige al controlador de signup
+router.post('/register', signup);
 
 // GitHub OAuth: deprecated (kept for backwards compatibility)
 router.get('/github', githubRedirect);

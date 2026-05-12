@@ -390,7 +390,9 @@ class Apartment {
                 a.longitud_apt AS longitud_apartamento,
                 a.info_add_apt AS info_adicional_apartamento
             FROM apartments AS a
-            LEFT JOIN barrio AS b ON a.id_barrio = b.id_barrio`
+            LEFT JOIN barrio AS b ON a.id_barrio = b.id_barrio
+            WHERE a.status = 'available'
+            AND a.publication_status = 'approved'`
         );
         return results;
     }

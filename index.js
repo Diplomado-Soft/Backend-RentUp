@@ -17,6 +17,7 @@ const { startUrlRefreshService } = require('./services/urlRefreshService');
 const idriveService = require('./utils/idriveService');
 // 💡 Nueva funcionalidad (requerida para verificar puertos en el arranque avanzado)
 const net = require('net');
+const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
 const app = express();
@@ -59,6 +60,20 @@ app.use((req, res, next) => {
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// === Rate Limiting ===
+const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 20,
+    message: { error: 'Demasiados intentos. Intenta de nuevo en 15 minutos' },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+app.use('/users/login', authLimiter);
+app.use('/auth/firebase-login', authLimiter);
+app.use('/auth/login', authLimiter);
+app.use('/auth/register', authLimiter);
+app.use('/auth/forgot-password', authLimiter);
 
 // === Logging simple ===
 app.use((req, _, next) => {
@@ -130,6 +145,8 @@ if (NODE_ENV === 'development') {
         console.log('🔐 Usando HTTPS en modo producción');
     } catch (err) {
         console.error("⚠️ Error cargando certificados SSL:", err.message);
+        console.warn('⚠️ ADVERTENCIA: SSL no disponible. La aplicación funciona en HTTP. Si estás en producción, ' +
+            'asegúrate de que los certificados existan en ./certs/key.pem y ./certs/cert.pem');
         console.log('⚠️ Cayendo a HTTP...');
         server = http.createServer(app);
     }
@@ -275,20 +292,19 @@ function isPortInUse(port) {
             console.warn('⚠️ Advertencia iniciando programador de reportes:', reportErr.message);
         }
 
-        // 5b. Analizar reseñas pendientes con Ollama (si está disponible)
+        // 5b. Analizar reseñas pendientes con IA (transformers.js)
         try {
-            console.log('🤖 Verificando reseñas pendientes para análisis con IA...');
-            const { analyzePendingReviews } = require('./services/ollamaAutoAnalysis');
+            console.log('Verificando reseñas pendientes para análisis con IA...');
+            const { analyzePendingReviews } = require('./services/sentimentAnalysis');
             const result = await analyzePendingReviews({ batchSize: 30, delay: 800 });
             
             if (result.success && result.analyzed > 0) {
-                console.log(`✅ Se analizaron ${result.analyzed} reseñas con Ollama`);
-            } else if (!result.ollamaAvailable) {
-                console.log('ℹ️ Ollama no está corriendo. Las reseñas se analizarán cuando esté disponible.');
-                console.log('   Para analizar: enciende Ollama y llama a POST /reviews/admin/analyze-pending');
+                console.log(`Se analizaron ${result.analyzed} reseñas con IA`);
+            } else if (!result.serviceAvailable) {
+                console.log('El modelo de IA se cargará en el primer análisis.');
             }
         } catch (analysisErr) {
-            console.warn('⚠️ Advertencia en análisis automático de reseñas:', analysisErr.message);
+            console.warn('Advertencia en análisis automático de reseñas:', analysisErr.message);
         }
 
         // 6. Iniciar servidor

@@ -18,6 +18,8 @@ class ApartmentDTO {
         this.publication_status = apartment.publication_status || 'pending';
         this.status = apartment.status || 'available';
         this.images = apartment.images || [];
+        this.user_phonenumber = apartment.user_phonenumber || null;
+        this.whatsapp = apartment.whatsapp || null;
     }
 
     static fromDatabase(apartment) {
