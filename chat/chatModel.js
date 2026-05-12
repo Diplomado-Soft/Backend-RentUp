@@ -1,23 +1,25 @@
 // server/chat/chatModel.js
 const db = require("../config/db");
 
-db.query(`
-  CREATE TABLE IF NOT EXISTS mensajes (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    emisor_id INT NOT NULL,
-    receptor_id INT NOT NULL,
-    contenido TEXT NOT NULL,
-    fecha_envio DATETIME DEFAULT CURRENT_TIMESTAMP,
-    leido BOOLEAN DEFAULT FALSE,
-    FOREIGN KEY (emisor_id) REFERENCES users(user_id) ON DELETE CASCADE,
-    FOREIGN KEY (receptor_id) REFERENCES users(user_id) ON DELETE CASCADE
-  );
-`).catch(err => {
-  // La creación puede fallar si tabla users no existe todavía; solo logueamos.
-  console.warn('Advertencia al crear tabla mensajes (si ya existía todo ok):', err.message);
-});
-
 const ChatModel = {
+  async init() {
+    try {
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS mensajes (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          emisor_id INT NOT NULL,
+          receptor_id INT NOT NULL,
+          contenido TEXT NOT NULL,
+          fecha_envio DATETIME DEFAULT CURRENT_TIMESTAMP,
+          leido BOOLEAN DEFAULT FALSE,
+          FOREIGN KEY (emisor_id) REFERENCES users(user_id) ON DELETE CASCADE,
+          FOREIGN KEY (receptor_id) REFERENCES users(user_id) ON DELETE CASCADE
+        );
+      `);
+    } catch (err) {
+      console.warn('Advertencia al crear tabla mensajes:', err.message);
+    }
+  },
   async guardarMensaje(emisor_id, receptor_id, contenido) {
     const sql = `INSERT INTO mensajes (emisor_id, receptor_id, contenido) VALUES (?, ?, ?)`;
     const [result] = await db.query(sql, [emisor_id, receptor_id, contenido]);

@@ -40,7 +40,9 @@ class NotificationModel {
         try {
             // Obtener todos los usuarios con rol admin (rol_id = 3)
             const [admins] = await db.execute(
-                'SELECT user_id FROM users WHERE rol_id = 3'
+                `SELECT u.user_id FROM users u
+                 INNER JOIN user_rol ur ON u.user_id = ur.user_id
+                 WHERE ur.rol_id = 3`
             );
             if (!admins.length) return [];
 
@@ -100,7 +102,7 @@ class NotificationModel {
              WHERE user_id = ?
              ORDER BY created_at DESC
              LIMIT ?`,
-            [user_id, String(limit)]
+            [user_id, parseInt(limit) || 50]
         );
         return rows;
     }

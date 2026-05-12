@@ -9,11 +9,14 @@ class ApartmentDTO {
         this.latitud_apt = apartment.latitud_apt;
         this.longitud_apt = apartment.longitud_apt;
         this.info_add_apt = apartment.info_add_apt;
-        this.price = apartment.price;
-        this.bedrooms = apartment.bedrooms;
-        this.bathrooms = apartment.bathrooms;
-        this.area_m2 = apartment.area_m2;
+        this.precio_apt = apartment.precio_apt || apartment.price || null;
+        this.habitaciones = apartment.habitaciones || apartment.bedrooms || null;
+        this.banos = apartment.banos || apartment.bathrooms || null;
+        this.metros_apt = apartment.metros_apt || apartment.area_m2 || null;
+        this.comodidades = apartment.comodidades || apartment.amenities || '';
         this.user_id = apartment.user_id;
+        this.publication_status = apartment.publication_status || 'pending';
+        this.status = apartment.status || 'available';
         this.images = apartment.images || [];
     }
 
@@ -41,6 +44,7 @@ class CreateApartmentDTO {
         this.bedrooms = data.bedrooms ? parseInt(data.bedrooms) : null;
         this.bathrooms = data.bathrooms ? parseInt(data.bathrooms) : null;
         this.area_m2 = data.area_m2 ? parseInt(data.area_m2) : null;
+        this.amenities = data.amenities || data.comodidades || '';
         this.userId = data.userId || data.user_id;
     }
 
@@ -99,6 +103,7 @@ class CreateApartmentDTO {
             bedrooms: this.bedrooms,
             bathrooms: this.bathrooms,
             area_m2: this.area_m2,
+            amenities: this.amenities,
             userId: this.userId
         };
     }

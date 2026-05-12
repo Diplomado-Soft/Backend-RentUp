@@ -384,7 +384,8 @@ class Review {
          LEFT JOIN barrio b ON a.id_barrio = b.id_barrio
          WHERE r.moderation_flag = 1
          ORDER BY r.analyzed_at DESC
-         LIMIT ${limitInt} OFFSET ${offsetInt}`,
+         LIMIT ? OFFSET ?`,
+        [limitInt, offsetInt]
       );
 
       const [countResult] = await db.query(
@@ -494,7 +495,8 @@ class Review {
           rating
          FROM reviews
          WHERE sentiment = 'unanalyzed'
-         LIMIT ${limitInt}`
+         LIMIT ?`,
+        [limitInt]
       );
 
       return reviews;

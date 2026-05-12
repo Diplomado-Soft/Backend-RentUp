@@ -263,13 +263,14 @@ exports.getMarkersInfo = async (req, res) => {
 
 exports.getApartmentsFiltered = async (req, res) => {
     try {
-        const { nearUniversity, radiusKm, priceMin, priceMax, bedrooms } = req.query;
+        const { nearUniversity, radiusKm, priceMin, priceMax, bedrooms, q } = req.query;
         const filters = {
             nearUniversity: nearUniversity === 'true',
             radiusKm:  radiusKm   ? parseFloat(radiusKm)  : null,
             priceMin:  priceMin   || null,
             priceMax:  priceMax   || null,
-            bedrooms:  bedrooms   ? parseInt(bedrooms)    : null
+            bedrooms:  bedrooms   ? parseInt(bedrooms)    : null,
+            search:    q          || null
         };
         console.log('📍 Filtros de búsqueda:', filters);
         const results = await Apartment.getApartmentsWithFilter(filters);
