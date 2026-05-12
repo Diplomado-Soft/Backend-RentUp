@@ -458,29 +458,3 @@ exports.unblockUser = async (req, res) => {
         res.status(500).json({ success: false, error: 'Error al desbloquear usuario' });
     }
 };
-
-/**
- * Desbloquear usuario (solo admin)
- * PUT /admin/users/:id/unblock
- */
-exports.unblockUser = async (req, res) => {
-    try {
-        const { id } = req.params;
-        
-        const [result] = await db.query(
-            'UPDATE users SET is_active = TRUE WHERE user_id = ?',
-            [id]
-        );
-        
-        if (result.affectedRows === 0) {
-            return res.status(404).json({ success: false, error: 'Usuario no encontrado' });
-        }
-        
-        console.log(`Usuario ${id} desbloqueado por admin ${req.user.id}`);
-        
-        res.json({ success: true, message: 'Usuario desbloqueado exitosamente' });
-    } catch (error) {
-        console.error('Error desbloqueando usuario:', error);
-        res.status(500).json({ success: false, error: 'Error al desbloquear usuario' });
-    }
-};

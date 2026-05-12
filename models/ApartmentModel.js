@@ -33,8 +33,8 @@ class Apartment {
             // 3. Insertar apartamento usando el ID del usuario (viene del middleware de autenticación)
             const [apartmentResult] = await connection.query(
                 `INSERT INTO apartments 
-                    (id_barrio, direccion_apt, latitud_apt, longitud_apt, info_add_apt, user_id, price, bedrooms, bathrooms, area_m2, status, publication_status, created_date)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'available', 'pending', NOW())`,
+                    (id_barrio, direccion_apt, latitud_apt, longitud_apt, info_add_apt, user_id, price, bedrooms, bathrooms, area_m2, comodidades, status, publication_status, created_date)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'available', 'pending', NOW())`,
                 [
                     barrioId,
                     data.direccion,
@@ -45,7 +45,8 @@ class Apartment {
                     data.price || null,
                     data.bedrooms || null,
                     data.bathrooms || null,
-                    data.area_m2 || null
+                    data.area_m2 || null,
+                    data.amenities || null
                 ]
             );
 
@@ -110,19 +111,21 @@ class Apartment {
 
             // 2. Actualizar los datos del apartamento
             const [updateResult] = await connection.query(
-                `UPDATE apartments 
-                    SET direccion_apt = ?, 
-                        id_barrio = ?, 
-                        latitud_apt = ?, 
-                        longitud_apt = ?, 
-                        info_add_apt = ?
-                    WHERE id_apt = ?`,
+            `UPDATE apartments 
+                SET direccion_apt = ?, 
+                    id_barrio = ?, 
+                    latitud_apt = ?, 
+                    longitud_apt = ?, 
+                    info_add_apt = ?,
+                    comodidades = ?
+                WHERE id_apt = ?`,
                 [
                     data.direccion_apt,
                     barrioResults[0].id_barrio,
                     data.latitud_apt,
                     data.longitud_apt,
                     data.info_add_apt || null,
+                    data.comodidades || null,
                     id_apt
                 ]
             );
@@ -307,6 +310,7 @@ class Apartment {
                     a.bedrooms AS habitaciones,
                     a.bathrooms AS banos,
                     a.area_m2 AS metros_apt,
+                    a.comodidades,
                     a.status as publication_status,
                     b.barrio,
                     u.user_id,
@@ -320,7 +324,7 @@ class Apartment {
                 LEFT JOIN barrio AS b ON a.id_barrio = b.id_barrio
                 LEFT JOIN users AS u ON a.user_id = u.user_id
                 LEFT JOIN apartment_images AS ai ON a.id_apt = ai.id_apt
-                WHERE (a.status = 'available' OR a.status IS NULL) AND a.status = 'available'
+                WHERE a.status = 'available'
                 AND a.publication_status = 'approved'
                 AND NOT EXISTS (
                     SELECT 1 FROM rental_agreements r 
@@ -404,7 +408,8 @@ class Apartment {
                     u.user_lastname,
                     u.user_email,
                     u.user_phonenumber,
-                    COUNT(ai.id_image) as image_count
+                    COUNT(ai.id_image) as image_count,
+                    GROUP_CONCAT(ai.signed_url ORDER BY ai.id_image ASC SEPARATOR '||') as image_urls
                 FROM apartments a
                 LEFT JOIN barrio b ON a.id_barrio = b.id_barrio
                 LEFT JOIN users u ON a.user_id = u.user_id
@@ -416,14 +421,12 @@ class Apartment {
                 [limit, offset]
             );
 
-            // Obtener las imágenes para cada apartamento
-            for (let apt of results) {
-                const [images] = await connection.query(
-                    'SELECT signed_url FROM apartment_images WHERE id_apt = ? ORDER BY id_image ASC',
-                    [apt.id_apt]
-                );
-                apt.images = images.map(img => ({ url: img.signed_url }));
-            }
+            results.forEach(apt => {
+                apt.images = apt.image_urls
+                    ? apt.image_urls.split('||').filter(Boolean).map(url => ({ url }))
+                    : [];
+                delete apt.image_urls;
+            });
 
             const [countResult] = await connection.query(
                 'SELECT COUNT(*) as total FROM apartments WHERE publication_status = \'pending\''
@@ -649,7 +652,7 @@ class Apartment {
         const geo = require('../utils/geolocationUtils');
         const geoConfig = await geo.getUniputumayoConfig();
         
-        let whereClause = "WHERE (a.status = 'available' OR a.status IS NULL) AND a.status = 'available' AND a.publication_status = 'approved' AND NOT EXISTS (SELECT 1 FROM rental_agreements r WHERE r.property_id = a.id_apt AND r.status = 'active')";
+        let whereClause = "WHERE a.status = 'available' AND a.publication_status = 'approved' AND NOT EXISTS (SELECT 1 FROM rental_agreements r WHERE r.property_id = a.id_apt AND r.status = 'active')";
         const params = [];
 
         if (filters.nearUniversity) {
@@ -672,6 +675,12 @@ class Apartment {
             params.push(parseInt(filters.bedrooms));
         }
 
+        if (filters.search) {
+            whereClause += ` AND (b.barrio LIKE ? OR a.direccion_apt LIKE ? OR a.info_add_apt LIKE ?)`;
+            const searchTerm = `%${filters.search}%`;
+            params.push(searchTerm, searchTerm, searchTerm);
+        }
+
         const [results] = await db.query(
             `SELECT
                 a.id_apt,
@@ -679,10 +688,11 @@ class Apartment {
                 a.latitud_apt,
                 a.longitud_apt,
                 a.info_add_apt,
-                a.price,
-                a.bedrooms,
-                a.bathrooms,
-                a.area_m2,
+                a.price AS precio_apt,
+                a.bedrooms AS habitaciones,
+                a.bathrooms AS banos,
+                a.area_m2 AS metros_apt,
+                a.comodidades,
                 a.status as publication_status,
                 b.barrio,
                 u.user_id,

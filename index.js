@@ -225,6 +225,8 @@ function isPortInUse(port) {
             console.log('🔄 Inicializando modelos...');
             const NotificationModel = require('./models/NotificationModel');
             await NotificationModel.init();
+            const { ChatModel } = require('./chat/chatModel');
+            await ChatModel.init();
             console.log('✅ Modelos inicializados');
         } catch (modelErr) {
             console.warn('⚠️ Advertencia inicializando modelos:', modelErr.message);

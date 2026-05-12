@@ -97,26 +97,14 @@ const firebaseLogin = async (req, res) => {
 
             console.log(`👤 Usuario existente: ${userId}`);
 
-            // 🔄 Reactivar si estaba eliminado
-            if (!userData.is_active) {
-                console.log(`🔄 Reactivando usuario...`);
-
-                await db.query(
-                    'UPDATE users SET is_active = TRUE WHERE user_id = ?',
-                    [userId]
-                );
-
-                hasRol = false;
-                userData.rol_id = null;
-            }
             // Verificar si la cuenta está bloqueada
-             if (users[0].is_active === false || users[0].is_active === 0) {
-                 console.log(`[${requestId}] Cuenta bloqueada:`, userId);
-                 return res.status(403).json({ 
-                     success: false, 
-                     error: 'Esta cuenta ha sido bloqueada. Contacta al administrador.' 
-                 });
-             }
+            if (!userData.is_active) {
+                console.log(`[${requestId}] Cuenta bloqueada:`, userId);
+                return res.status(403).json({
+                    success: false,
+                    error: 'Esta cuenta ha sido bloqueada. Contacta al administrador.'
+                });
+            }
 
             // 🔄 Actualizar datos Google
             if (!userData.user_google_id || !userData.profile_image) {

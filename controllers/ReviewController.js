@@ -56,13 +56,13 @@ exports.createReview = async (req, res) => {
     });
 
     // ===== T-13: Análisis de IA con Ollama (Asincrónico) =====
-    // Se ejecuta en background, no bloquea la creación de la review
+    const { comment: reviewComment, rating: reviewRating } = dtoData;
     (async () => {
       try {
         console.log(`🤖 [T-13] Iniciando análisis con Ollama para review ${review.review_id}...`);
         const analysis = await AIAnalysisService.processReviewAnalysis(
-          comment || '',
-          rating
+          reviewComment || '',
+          reviewRating
         );
 
         // Guardar resultado en BD

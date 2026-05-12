@@ -21,12 +21,14 @@ module.exports = async (req, res, next) => {
             return res.status(401).json({ error: 'Token inválido o expirado' });
         }
 
-        // ✅ El token contiene: { id, rol, iat, exp }
-        // Guardar los datos del usuario decodificados del JWT
         req.user = {
             id: decoded.id,
+            userId: decoded.id,
+            user_id: decoded.id,
             rol: decoded.rol,
-            userId: decoded.id
+            rol_id: decoded.rol,
+            userRole: decoded.rol,
+            rolId: decoded.rol
         };
         
         console.log('✅ Token verificado exitosamente', {

@@ -38,7 +38,8 @@ async function loadFromDB() {
             };
             return true;
         }
-    } catch {
+    } catch (error) {
+        console.warn('Error cargando configuración de geolocalización:', error.message);
     }
     return false;
 }

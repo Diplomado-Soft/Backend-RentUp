@@ -3,10 +3,12 @@ const router = express.Router();
 const { upload, validateFiles } = require('../middlewares/fileUpload');
 const ApartmentController = require('../controllers/apartmentController');
 const authMiddleware = require('../middlewares/authMiddleware');
+const isLandlord = require('../middlewares/isLandlord');
 
 // Rutas con middlewares aplicados
 router.post('/uploadImage/:id_apt', 
     authMiddleware,
+    isLandlord,
     upload.array('images'),
     validateFiles,
     ApartmentController.uploadImage
@@ -14,6 +16,7 @@ router.post('/uploadImage/:id_apt',
 
 router.post('/addApartment', 
     authMiddleware,
+    isLandlord,
     (req, res, next) => {
         console.log('🔍 DEBUG Route - Body:', req.body);
         console.log('🔍 DEBUG Route - Files:', req.files?.length || 0);
@@ -34,6 +37,7 @@ router.post('/addApartment',
 
 router.put('/update/:id_apt', 
     authMiddleware,
+    isLandlord,
     upload.array("new_images"),
     validateFiles,
     ApartmentController.updateApartment
@@ -42,10 +46,12 @@ router.put('/update/:id_apt',
 // Rutas sin manejo de archivos
 router.get('/manage', 
     authMiddleware,
+    isLandlord,
     ApartmentController.getApartmentsByLessor
 );
 router.delete('/delete/:id_apt', 
     authMiddleware,
+    isLandlord,
     ApartmentController.deleteApartment
 );
 router.get('/getapts', ApartmentController.getAllApartments);
