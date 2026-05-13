@@ -184,7 +184,7 @@ const firebaseLogin = async (req, res) => {
                 firebaseEmail,
                 nombre || firebaseEmail.split('@')[0],
                 apellido || ''
-            ).catch(() => {});
+            ).catch(err => console.error('Error enviando email de bienvenida:', err.message));
         }
 
         // ==============================
@@ -327,7 +327,7 @@ const forgotPassword = async (req, res) => {
         );
         
         if (userRows.length === 0) {
-            return res.status(400).json({ error: 'Usuario no encontrado' });
+            return res.status(400).json({ error: 'Email no registrado o código inválido' });
         }
         
         const user = userRows[0];
@@ -396,9 +396,26 @@ const forgotPassword = async (req, res) => {
  * POST /auth/reset-password
  * Restablecer contraseña con código (6 dígitos)
  */
+// Rate limiter para reset-password
+const resetPasswordAttempts = new Map();
+
 const resetPassword = async (req, res) => {
     try {
         const { code, newPassword } = req.body;
+        const ip = req.ip || req.connection.remoteAddress;
+        
+        // Rate limiting por IP (max 5 intentos por hora)
+        const attempts = resetPasswordAttempts.get(ip) || { count: 0, firstAttempt: Date.now() };
+        const oneHourMs = 60 * 60 * 1000;
+        
+        if (Date.now() - attempts.firstAttempt > oneHourMs) {
+            attempts.count = 0;
+            attempts.firstAttempt = Date.now();
+        }
+        
+        if (attempts.count >= 5) {
+            return res.status(429).json({ error: 'Demasiados intentos. Intenta de nuevo en 1 hora' });
+        }
         
         if (!code || !newPassword) {
             return res.status(400).json({ error: 'Código y nueva contraseña son requeridos' });
@@ -409,11 +426,11 @@ const resetPassword = async (req, res) => {
         }
         
         // Buscar usuario por código válido
-        console.log('Buscando código:', code);
         const [userRows] = await db.query('SELECT user_id FROM users WHERE reset_token = ? AND reset_token_expiry > NOW()', [code]);
-        console.log('Resultado búsqueda:', userRows.length > 0 ? 'Código válido' : 'Código inválido o expirado');
         
         if (userRows.length === 0) {
+            attempts.count += 1;
+            resetPasswordAttempts.set(ip, attempts);
             return res.status(400).json({ error: 'Código inválido o expirado' });
         }
         
@@ -425,6 +442,9 @@ const resetPassword = async (req, res) => {
         
         // Actualizar contraseña y limpiar token
         await db.query('UPDATE users SET user_password = ?, reset_token = NULL, reset_token_expiry = NULL WHERE user_id = ?', [hashedPassword, user.user_id]);
+        
+        // Limpiar intentos al ser exitoso
+        resetPasswordAttempts.delete(ip);
         
         res.json({ success: true, message: 'Contraseña restablecida exitosamente' });
     } catch (error) {

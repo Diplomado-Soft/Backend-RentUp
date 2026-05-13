@@ -32,7 +32,7 @@ class AdminApartmentController {
         try {
             const { id_apt } = req.params;
             const { notes = '' } = req.body;
-            const adminId = req.user.userId; // Del middleware de autenticación
+            const adminId = req.user.id; // Del middleware de autenticación
 
             // Validación
             if (!id_apt) {
@@ -67,7 +67,7 @@ class AdminApartmentController {
         try {
             const { id_apt } = req.params;
             const { notes = '' } = req.body;
-            const adminId = req.user.userId;
+            const adminId = req.user.id;
 
             console.log('📝 rejectApartment called:', { id_apt, adminId, notes });
 

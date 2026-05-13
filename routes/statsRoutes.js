@@ -5,6 +5,13 @@ const authMiddleware = require('../middlewares/authMiddleware');
 
 
 
-router.get('/get-user-top-apartment', authMiddleware, statsController.getUserTopApartment); // Ruta para obtener las estadísticas de un usuario
-router.get('/get-top-landlord', statsController.getTopLandlord); // Ruta para obtener el arrendador con más apartamentos publicados
+const isAdmin = (req, res, next) => {
+    const userRole = req.user?.rol;
+    if (req.user && (userRole === 3 || userRole === '3')) return next();
+    return res.status(403).json({ success: false, error: 'Acceso denegado. Se requieren permisos de administrador' });
+};
+
+router.get('/get-user-top-apartment', authMiddleware, statsController.getUserTopApartment);
+router.get('/get-top-landlord', statsController.getTopLandlord);
+router.get('/admin', authMiddleware, isAdmin, statsController.getAdminStats);
 module.exports = router; // Exportar el router para usarlo en la aplicación principal

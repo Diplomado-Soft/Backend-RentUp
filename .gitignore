@@ -1,6 +1,6 @@
-.env
 node_modules
 package-lock.json
-.env.example
+.env
 certs/
 coverage/
+reports/

@@ -21,15 +21,7 @@ module.exports = async (req, res, next) => {
             return res.status(401).json({ error: 'Token inválido o expirado' });
         }
 
-        req.user = {
-            id: decoded.id,
-            userId: decoded.id,
-            user_id: decoded.id,
-            rol: decoded.rol,
-            rol_id: decoded.rol,
-            userRole: decoded.rol,
-            rolId: decoded.rol
-        };
+        req.user = { id: decoded.id, rol: decoded.rol };
         
         console.log('✅ Token verificado exitosamente', {
             userId: req.user.id,

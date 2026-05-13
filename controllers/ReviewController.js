@@ -13,7 +13,7 @@ exports.createReview = async (req, res) => {
       return res.status(401).json({ error: 'Usuario no autenticado' });
     }
 
-    const reviewer_id = req.user.id || req.user.user_id; // Usuario autenticado
+    const reviewer_id = req.user.id || req.user.id; // Usuario autenticado
 
     // Usar CreateReviewDTO para validación
     const reviewDTO = new CreateReviewDTO({
@@ -176,7 +176,7 @@ exports.getReview = async (req, res) => {
 exports.updateReview = async (req, res) => {
   try {
     const { review_id } = req.params;
-    const user_id = req.user.id || req.user.user_id;
+    const user_id = req.user.id || req.user.id;
 
     // Verificar que la reseña existe y pertenece al usuario
     const review = await Review.getReviewById(review_id);
@@ -226,8 +226,8 @@ exports.updateReview = async (req, res) => {
 exports.deleteReview = async (req, res) => {
   try {
     const { review_id } = req.params;
-    const user_id = req.user.id || req.user.user_id;
-    const user_role = req.user.rol_id || req.user.rolId;
+    const user_id = req.user.id || req.user.id;
+    const user_role = req.user.rol || req.user.rol;
 
     // Verificar que la reseña existe
     const review = await Review.getReviewById(review_id);
@@ -350,7 +350,7 @@ exports.getPropertySentimentStats = async (req, res) => {
 exports.getModerationHistory = async (req, res) => {
   try {
     const { review_id } = req.params;
-    const user_role = req.user.rol_id || req.user.userRole;
+    const user_role = req.user.rol || req.user.rol;
 
     // Solo admins
     if (user_role !== 3) {
@@ -381,8 +381,8 @@ exports.approveReview = async (req, res) => {
   try {
     const { review_id } = req.params;
     const { notes = '' } = req.body;
-    const admin_id = req.user.id || req.user.userId;
-    const user_role = req.user.rol_id || req.user.userRole;
+    const admin_id = req.user.id || req.user.id;
+    const user_role = req.user.rol || req.user.rol;
 
     // Solo admins
     if (user_role !== 3) {
@@ -424,8 +424,8 @@ exports.rejectReview = async (req, res) => {
   try {
     const { review_id } = req.params;
     const { notes = 'Sin especificar' } = req.body;
-    const admin_id = req.user.id || req.user.userId;
-    const user_role = req.user.rol_id || req.user.userRole;
+    const admin_id = req.user.id || req.user.id;
+    const user_role = req.user.rol || req.user.rol;
 
     // Solo admins
     if (user_role !== 3) {
@@ -473,7 +473,7 @@ exports.rejectReview = async (req, res) => {
  */
 exports.analyzeBatch = async (req, res) => {
   try {
-    const user_role = req.user.rol_id || req.user.userRole;
+    const user_role = req.user.rol || req.user.rol;
 
     if (user_role !== 3) {
       return res.status(403).json({
@@ -598,7 +598,7 @@ exports.checkAIHealth = async (req, res) => {
  */
 exports.getUserReviews = async (req, res) => {
   try {
-    const userId = req.user.id || req.user.user_id;
+    const userId = req.user.id || req.user.id;
     
     const reviews = await Review.getUserReviews(userId);
     

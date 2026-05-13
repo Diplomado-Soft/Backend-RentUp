@@ -24,14 +24,14 @@ const isAdmin = (req, res, next) => {
 // Todas las rutas requieren autenticación y rol de admin
 router.use(authMiddleware, isAdmin);
 
+// Obtener apartamentos pendientes de aprobación (DEBE ir antes de rutas con parámetros)
+router.get('/pending', AdminApartmentController.getPendingApartments);
+
 // Obtener estado de publicación de un apartamento
 router.get('/:id_apt/status', AdminApartmentController.getPublicationStatus);
 
 // Obtener historial de aprobación de un apartamento
 router.get('/:id_apt/history', AdminApartmentController.getApprovalHistory);
-
-// Obtener apartamentos pendientes de aprobación
-router.get('/pending', AdminApartmentController.getPendingApartments);
 
 // Aprobar apartamento
 router.post('/:id_apt/approve', AdminApartmentController.approveApartment);

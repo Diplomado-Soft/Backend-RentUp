@@ -1,7 +1,7 @@
 const Stats = require('../models/statsModel');
 
 const getUserTopApartment = async (req, res) => {
-    const userId = req.user?.id || req.user?.user_id;
+    const userId = req.user?.id;
     console.log("userId", userId);
 
     try {
@@ -30,4 +30,14 @@ const getTopLandlord = async (req, res) => {
     }
 };
 
-module.exports = { getUserTopApartment, getTopLandlord };
+const getAdminStats = async (req, res) => {
+    try {
+        const stats = await Stats.getAdminStats();
+        res.status(200).json(stats);
+    } catch (error) {
+        console.error('Error al obtener estadísticas de admin:', error);
+        res.status(500).json({ message: "Error al obtener estadísticas." });
+    }
+};
+
+module.exports = { getUserTopApartment, getTopLandlord, getAdminStats };

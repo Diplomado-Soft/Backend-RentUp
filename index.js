@@ -9,9 +9,7 @@ const helmet = require('helmet');
 const { Server } = require('socket.io');
 // 💡 Nueva funcionalidad: Importación de base de datos
 const importDatabase = require('./utils/importaDatabase');
-// 💡 Migraciones automáticas
-const { runMigrations } = require('./utils/migrationService');
-// 💡 Nueva funcionalidad: Servicio de renovación de URLs para IDrive e2
+// 💡 Servicio de renovación de URLs para IDrive e2
 const { startUrlRefreshService } = require('./services/urlRefreshService');
 // 💡 Nueva funcionalidad: Verificación de conexión a IDrive e2
 const idriveService = require('./utils/idriveService');
@@ -27,15 +25,22 @@ const app = express();
 // pero se usa el formato del segundo archivo (FRONTEND_URL) para el socket.io
 const allowedOrigins = process.env.ALLOWED_ORIGINS
     ? process.env.ALLOWED_ORIGINS.split(',')
-    : [process.env.FRONTEND_URL || '*']; // Se usa FRONTEND_URL como fallback para *
+    : process.env.FRONTEND_URL
+        ? [process.env.FRONTEND_URL]
+        : ['*'];
 
-app.use(cors({
+const corsOptions = {
     origin: allowedOrigins,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     exposedHeaders: ['Content-Disposition'],
-    credentials: true
-}));
+};
+
+if (!allowedOrigins.includes('*')) {
+    corsOptions.credentials = true;
+}
+
+app.use(cors(corsOptions));
 
 // === Configuración de Helmet (sin COOP restrictivo para permitir popups de OAuth) ===
 app.use(helmet({
@@ -202,47 +207,30 @@ io.on("connection", (socket) => {
 
     socket.on("disconnect", () => {
         console.log("🔴 Usuario desconectado:", socket.id);
-        // Remover del mapa userSockets
         for (const [userId, sId] of userSockets.entries()) {
             if (sId === socket.id) userSockets.delete(userId);
         }
     });
+
+    // Evento de notificaciones admin: el frontend se une a sala admin
+    socket.on("register_admin", () => {
+        socket.join("admins");
+        console.log("🔔 Admin registrado para notificaciones:", socket.id);
+    });
 });
 
-// === Redirección HTTP -> HTTPS (solo si estamos en producción y tenemos HTTPS) ===
-// No usamos redirección en desarrollo
-
-// === Función para verificar si un puerto está en uso (Nueva funcionalidad) ===
-function isPortInUse(port) {
-    return new Promise((resolve) => {
-        const server = net.createServer();
-        server.once('error', (err) => {
-            if (err.code === 'EADDRINUSE') resolve(true);
-            else resolve(false);
-        });
-        server.once('listening', () => {
-            server.close();
-            resolve(false);
-        });
-        server.listen(port);
-    });
+// Función para emitir notificaciones en tiempo real a admins
+function emitAdminNotification(notification) {
+    io.to("admins").emit("admin_notification", notification);
 }
 
-// === Arranque del Servidor ===
-(async function start() {
-    try {
-        // 1. Verificar puerto
-        const portInUse = await isPortInUse(HTTP_PORT);
-        if (portInUse) {
-            throw new Error(`Puerto ${HTTP_PORT} en uso. Detén otros servidores primero.`);
-        }
+module.exports.io = io;
+module.exports.emitAdminNotification = emitAdminNotification;
 
+(async () => {
+    try {
         // 2c. Inicializar modelos
         try {
-            console.log('🔄 Inicializando modelos...');
-            const NotificationModel = require('./models/NotificationModel');
-            await NotificationModel.init();
-            const { ChatModel } = require('./chat/chatModel');
             await ChatModel.init();
             console.log('✅ Modelos inicializados');
         } catch (modelErr) {
@@ -312,6 +300,16 @@ function isPortInUse(port) {
             console.log(`✅ Servidor activo en http://localhost:${HTTP_PORT}`);
             console.log(`📡 Socket.io escuchando en ws://localhost:${HTTP_PORT}`);
             console.log(`🌍 CORS habilitado para: ${FRONTEND_URL}`);
+        });
+
+        server.on('error', (err) => {
+            if (err.code === 'EADDRINUSE') {
+                console.error(`❌ El puerto ${HTTP_PORT} ya está en uso.`);
+                console.error('   Cierra el otro proceso o usa un puerto diferente.');
+            } else {
+                console.error('❌ Error del servidor:', err.message);
+            }
+            process.exit(1);
         });
 
     } catch (err) {

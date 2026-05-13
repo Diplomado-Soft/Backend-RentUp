@@ -215,7 +215,7 @@ exports.login = async (req, res) => {
  */
 exports.updateWhatsApp = async (req, res) => {
     try {
-        const userId = req.user?.id || req.user?.user_id;
+        const userId = req.user?.id;
         const { telefono, whatsapp } = req.body;
 
         const db = require('../config/db');
@@ -332,7 +332,7 @@ exports.getUsers = async (req, res) => {
         let query = `
             SELECT u.user_id, u.user_name, u.user_lastname, u.user_email, 
                    u.user_phonenumber, u.is_active, u.created_at,
-                   r.rol_id
+                   MAX(r.rol_id) AS rol_id
             FROM users u
         `;
         
@@ -359,7 +359,7 @@ exports.getUsers = async (req, res) => {
             }
         }
         
-        query += ` ORDER BY u.created_at DESC LIMIT ? OFFSET ?`;
+        query += ` GROUP BY u.user_id ORDER BY u.created_at DESC LIMIT ? OFFSET ?`;
         params.push(parseInt(limit), parseInt(offset));
         
         console.log('getUsers query:', query);
@@ -368,7 +368,7 @@ exports.getUsers = async (req, res) => {
         const [users] = await db.query(query, params);
         
         // Obtener total para paginación
-        let countQuery = `SELECT COUNT(*) as total FROM users u LEFT JOIN user_rol r ON u.user_id = r.user_id WHERE 1=1`;
+        let countQuery = `SELECT COUNT(DISTINCT u.user_id) as total FROM users u LEFT JOIN user_rol r ON u.user_id = r.user_id WHERE 1=1`;
         const countParams = [];
         
         if (search) {
