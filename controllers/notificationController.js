@@ -7,8 +7,8 @@ const { CreateNotificationDTO, NotificationDTO, UpdateNotificationDTO } = requir
  */
 exports.getNotifications = async (req, res) => {
     try {
-        const user_id  = req.user.id || req.user.user_id;
-        const user_role = req.user.rol || req.user.rol_id || req.user.userRole;
+        const user_id  = req.user.id || req.user.id;
+        const user_role = req.user.rol || req.user.rol || req.user.rol;
 
         console.log('🔔 getNotifications - user_id:', user_id, 'user_role:', user_role);
 
@@ -31,8 +31,8 @@ exports.getNotifications = async (req, res) => {
  */
 exports.markRead = async (req, res) => {
     try {
-        const user_id   = req.user.id || req.user.user_id;
-        const user_role = req.user.rol || req.user.rol_id || req.user.userRole;
+        const user_id   = req.user.id || req.user.id;
+        const user_role = req.user.rol || req.user.rol || req.user.rol;
         if (user_role !== 3 && user_role !== '3') return res.status(403).json({ error: 'Acceso denegado' });
 
         const { id } = req.params;
@@ -61,8 +61,8 @@ exports.markRead = async (req, res) => {
  */
 exports.markAllRead = async (req, res) => {
     try {
-        const user_id   = req.user.id || req.user.user_id;
-        const user_role = req.user.rol || req.user.rol_id || req.user.userRole;
+        const user_id   = req.user.id || req.user.id;
+        const user_role = req.user.rol || req.user.rol || req.user.rol;
         if (user_role !== 3 && user_role !== '3') return res.status(403).json({ error: 'Acceso denegado' });
 
         const count = await NotificationModel.markAllRead(user_id);

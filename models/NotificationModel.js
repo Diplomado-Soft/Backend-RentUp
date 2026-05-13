@@ -21,8 +21,23 @@ class NotificationModel {
                     INDEX idx_created_at (created_at)
                 )
             `);
+            await db.execute(`
+                CREATE TABLE IF NOT EXISTS admin_notifications (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    user_id INT NOT NULL,
+                    type VARCHAR(50) NOT NULL,
+                    title VARCHAR(255) NOT NULL,
+                    message TEXT,
+                    reference_id INT,
+                    reference_type VARCHAR(50),
+                    read_at DATETIME,
+                    created_at DATETIME NOT NULL,
+                    INDEX idx_user_id (user_id),
+                    INDEX idx_created_at (created_at)
+                )
+            `);
         } catch (error) {
-            console.error('Error creando tabla user_notifications:', error);
+            console.error('Error creando tablas de notificaciones:', error);
         }
     }
 
@@ -38,7 +53,6 @@ class NotificationModel {
      */
     static async createForAdmins({ type, title, message, reference_id = null, reference_type = null }) {
         try {
-            // Obtener todos los usuarios con rol admin (rol_id = 3)
             const [admins] = await db.execute(
                 `SELECT u.user_id FROM users u
                  INNER JOIN user_rol ur ON u.user_id = ur.user_id
@@ -55,6 +69,17 @@ class NotificationModel {
                 );
                 results.push(result.insertId);
             }
+
+            // Emitir en tiempo real a admins conectados
+            try {
+                const { emitAdminNotification } = require('../index');
+                if (typeof emitAdminNotification === 'function') {
+                    emitAdminNotification({ type, title, message, reference_id, reference_type });
+                }
+            } catch (e) {
+                // Silencioso - socket puede no estar disponible
+            }
+
             return results;
         } catch (error) {
             console.error('Error creando notificación:', error);
@@ -62,9 +87,6 @@ class NotificationModel {
         }
     }
 
-    /**
-     * Crear una notificación para un usuario específico
-     */
     static async createForUser(user_id, { type, title, message, reference_id = null, reference_type = null }) {
         try {
             const [result] = await db.execute(
@@ -97,12 +119,13 @@ class NotificationModel {
      * Obtener notificaciones de un admin
      */
     static async getForAdmin(user_id, limit = 50) {
-        const [rows] = await db.execute(
+        const safeLimit = parseInt(limit) || 50;
+        const [rows] = await db.query(
             `SELECT * FROM admin_notifications
              WHERE user_id = ?
              ORDER BY created_at DESC
-             LIMIT ?`,
-            [user_id, parseInt(limit) || 50]
+             LIMIT ${safeLimit}`,
+            [user_id]
         );
         return rows;
     }

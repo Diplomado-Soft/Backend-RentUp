@@ -26,7 +26,7 @@ router.get('/landlord/my-reviews', authMiddleware, reviewController.getLandlordR
 // Verificar si el usuario puede reseñar una propiedad (tiene contrato)
 router.get('/can-review/:property_id', authMiddleware, async (req, res) => {
   try {
-    const userId = req.user.id || req.user.user_id;
+    const userId = req.user.id;
     const { property_id } = req.params;
     
     // Verificar si tiene contrato

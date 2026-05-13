@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { verifyToken, generateAccessToken } = require('../utils/auth');
+const { verifyToken, generateAccessToken, generateRefreshToken } = require('../utils/auth');
 const { firebaseLogin, githubRedirect, githubCallback, logout, forgotPassword, resetPassword } = require('../controllers/authController');
 const { RefreshTokenDTO } = require('../dtos');
 const { signup } = require('../controllers/userController');
@@ -17,52 +17,36 @@ router.post('/register', signup);
 router.get('/github', githubRedirect);
 router.get('/github/callback', githubCallback);
 
-// Renovar access token con refresh token
 router.post('/refresh-token', (req, res) => {
-    // Usar RefreshTokenDTO para validación
     const refreshDTO = new RefreshTokenDTO(req.body);
     const validation = refreshDTO.validate();
-    
     if (!validation.isValid) {
-        return res.status(401).json({ 
-            error: 'Token de refresco inválido', 
-            errors: validation.errors 
-        });
+        return res.status(401).json({ error: 'Token de refresco inválido', errors: validation.errors });
     }
     
-    const { refreshToken } = refreshDTO;
-    
     try {
-        const decoded = verifyToken(refreshToken, process.env.JWT_REFRESH_SECRET);
-        const newAccesToken = generateAccessToken({ id: decoded.id, role: decoded.role });
-        res.json({ accessToken: newAccesToken });
+        const decoded = verifyToken(refreshDTO.refreshToken, process.env.JWT_REFRESH_SECRET);
+        const newAccesToken = generateAccessToken({ id: decoded.id, rol: decoded.rol });
+        const newRefreshToken = generateRefreshToken({ id: decoded.id, rol: decoded.rol });
+        res.json({ accessToken: newAccesToken, refreshToken: newRefreshToken });
     } catch (error) {
-        console.error('Error refrescando token:', error);
         res.status(401).json({ error: 'Token de refresco inválido o expirado' });
     }
 });
 
-// Alias para /refresh
 router.post('/refresh', (req, res) => {
-    // Usar RefreshTokenDTO para validación
     const refreshDTO = new RefreshTokenDTO(req.body);
     const validation = refreshDTO.validate();
-    
     if (!validation.isValid) {
-        return res.status(401).json({ 
-            error: 'Token de refresco inválido', 
-            errors: validation.errors 
-        });
+        return res.status(401).json({ error: 'Token de refresco inválido', errors: validation.errors });
     }
     
-    const { refreshToken } = refreshDTO;
-    
     try {
-        const decoded = verifyToken(refreshToken, process.env.JWT_REFRESH_SECRET);
-        const newAccesToken = generateAccessToken({ id: decoded.id, role: decoded.role });
-        res.json({ accessToken: newAccesToken });
+        const decoded = verifyToken(refreshDTO.refreshToken, process.env.JWT_REFRESH_SECRET);
+        const newAccesToken = generateAccessToken({ id: decoded.id, rol: decoded.rol });
+        const newRefreshToken = generateRefreshToken({ id: decoded.id, rol: decoded.rol });
+        res.json({ accessToken: newAccesToken, refreshToken: newRefreshToken });
     } catch (error) {
-        console.error('Error refrescando token:', error);
         res.status(401).json({ error: 'Token de refresco inválido o expirado' });
     }
 });

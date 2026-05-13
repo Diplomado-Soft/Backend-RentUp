@@ -13,7 +13,7 @@ exports.addApartment = async (req, res) => {
         console.log('🔍 req.processedFiles:', req.processedFiles?.length || 0, 'procesados');
         
         // Obtener ID del usuario autenticado desde el token
-        const userId = req.user?.id || req.user?.user_id;
+        const userId = req.user?.id;
 
         if (!userId) {
             console.log('❌ Usuario no autenticado');
