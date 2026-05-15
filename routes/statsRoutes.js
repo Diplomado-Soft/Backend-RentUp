@@ -14,4 +14,7 @@ const isAdmin = (req, res, next) => {
 router.get('/get-user-top-apartment', authMiddleware, statsController.getUserTopApartment);
 router.get('/get-top-landlord', statsController.getTopLandlord);
 router.get('/admin', authMiddleware, isAdmin, statsController.getAdminStats);
-module.exports = router; // Exportar el router para usarlo en la aplicación principal
+router.get('/occupation-trend', authMiddleware, statsController.getOccupationTrend);
+router.get('/revenue-by-zone', authMiddleware, statsController.getRevenueByZone);
+router.get('/vacancy-rate', authMiddleware, statsController.getVacancyRate);
+module.exports = router;

@@ -4,7 +4,7 @@
 class ContractDTO {
     constructor(contract) {
         this.agreement_id = contract.agreement_id;
-        this.id_apt = contract.id_apt;
+        this.id_apt = contract.id_apt || contract.property_id;
         this.tenant_id = contract.tenant_id;
         this.landlord_id = contract.landlord_id;
         this.start_date = contract.start_date;
@@ -16,7 +16,10 @@ class ContractDTO {
         this.created_at = contract.created_at;
         this.tenant_name = contract.tenant_name || null;
         this.landlord_name = contract.landlord_name || null;
-        this.property_address = contract.property_address || null;
+        this.property_address = contract.property_address || contract.direccion_apt || null;
+        this.barrio = contract.barrio || contract.barrio_name || null;
+        this.direccion_apt = contract.direccion_apt || null;
+        this.images = contract.images || [];
     }
 
     static fromDatabase(contract) {

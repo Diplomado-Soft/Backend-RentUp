@@ -40,4 +40,35 @@ const getAdminStats = async (req, res) => {
     }
 };
 
-module.exports = { getUserTopApartment, getTopLandlord, getAdminStats };
+const getOccupationTrend = async (req, res) => {
+    try {
+        const days = req.query.days || 30;
+        const data = await Stats.getOccupationTrend(days);
+        res.status(200).json(data);
+    } catch (error) {
+        console.error('Error al obtener tendencia de ocupación:', error);
+        res.status(500).json({ message: "Error al obtener tendencia de ocupación." });
+    }
+};
+
+const getRevenueByZone = async (req, res) => {
+    try {
+        const data = await Stats.getRevenueByZone();
+        res.status(200).json(data);
+    } catch (error) {
+        console.error('Error al obtener ingresos por zona:', error);
+        res.status(500).json({ message: "Error al obtener ingresos por zona." });
+    }
+};
+
+const getVacancyRate = async (req, res) => {
+    try {
+        const data = await Stats.getVacancyRate();
+        res.status(200).json(data);
+    } catch (error) {
+        console.error('Error al obtener tasa de vacancia:', error);
+        res.status(500).json({ message: "Error al obtener tasa de vacancia." });
+    }
+};
+
+module.exports = { getUserTopApartment, getTopLandlord, getAdminStats, getOccupationTrend, getRevenueByZone, getVacancyRate };

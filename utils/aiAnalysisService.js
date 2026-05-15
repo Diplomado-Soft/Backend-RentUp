@@ -9,7 +9,7 @@ const getPipeline = async () => {
         pipeline = p;
         sentimentPipeline = await pipeline(
             'sentiment-analysis',
-            'nlptown/bert-base-multilingual-uncased-sentiment'
+            'Xenova/bert-base-multilingual-uncased-sentiment'
         );
         pipelineLoaded = true;
         console.log('Modelo de sentimiento multilingüe cargado en Node.js');

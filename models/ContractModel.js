@@ -86,36 +86,94 @@ class Contract {
     }
 
     static async getByTenant(tenant_id) {
+        const { getValidSignedUrl } = require('../services/urlRefreshService');
         const [results] = await db.query(
             `SELECT r.*, 
                     a.direccion_apt, b.barrio as barrio_name,
+                    a.id_apt,
                     landlord.user_name as landlord_name, landlord.user_lastname as landlord_lastname,
-                    landlord.user_email as landlord_email, landlord.user_phonenumber as landlord_phone
+                    landlord.user_email as landlord_email, landlord.user_phonenumber as landlord_phone,
+                    GROUP_CONCAT(CONCAT(ai.id_image, ':', ai.s3_key)) AS image_data
             FROM rental_agreements r
             LEFT JOIN apartments a ON r.property_id = a.id_apt
             LEFT JOIN barrio b ON a.id_barrio = b.id_barrio
             LEFT JOIN users landlord ON r.landlord_id = landlord.user_id
+            LEFT JOIN apartment_images ai ON a.id_apt = ai.id_apt
             WHERE r.tenant_id = ?
+            GROUP BY r.agreement_id
             ORDER BY r.created_at DESC`,
             [tenant_id]
         );
-        return results;
+
+        const processedResults = await Promise.all(
+            results.map(async contract => {
+                if (contract.image_data) {
+                    const imagePairs = contract.image_data.split(',');
+                    const images = await Promise.all(
+                        imagePairs.map(async pair => {
+                            try {
+                                const [id, s3_key] = pair.split(':');
+                                const { signedUrl, expiresAt } = await getValidSignedUrl(parseInt(id));
+                                return { id, s3_key, url: signedUrl, expiresAt };
+                            } catch (error) {
+                                console.error('Error renovando URL para imagen:', error.message);
+                                return null;
+                            }
+                        })
+                    );
+                    contract.images = images.filter(img => img !== null);
+                }
+                delete contract.image_data;
+                return contract;
+            })
+        );
+
+        return processedResults;
     }
 
     static async getByLandlord(landlord_id) {
+        const { getValidSignedUrl } = require('../services/urlRefreshService');
         const [results] = await db.query(
             `SELECT r.*, 
                     a.direccion_apt, b.barrio,
-                    tenant.user_name as tenant_name, tenant.user_lastname as tenant_lastname
+                    a.id_apt,
+                    tenant.user_name as tenant_name, tenant.user_lastname as tenant_lastname,
+                    GROUP_CONCAT(CONCAT(ai.id_image, ':', ai.s3_key)) AS image_data
             FROM rental_agreements r
             LEFT JOIN apartments a ON r.property_id = a.id_apt
             LEFT JOIN barrio b ON a.id_barrio = b.id_barrio
             LEFT JOIN users tenant ON r.tenant_id = tenant.user_id
+            LEFT JOIN apartment_images ai ON a.id_apt = ai.id_apt
             WHERE r.landlord_id = ?
+            GROUP BY r.agreement_id
             ORDER BY r.created_at DESC`,
             [landlord_id]
         );
-        return results;
+
+        const processedResults = await Promise.all(
+            results.map(async contract => {
+                if (contract.image_data) {
+                    const imagePairs = contract.image_data.split(',');
+                    const images = await Promise.all(
+                        imagePairs.map(async pair => {
+                            try {
+                                const [id, s3_key] = pair.split(':');
+                                const { signedUrl, expiresAt } = await getValidSignedUrl(parseInt(id));
+                                return { id, s3_key, url: signedUrl, expiresAt };
+                            } catch (error) {
+                                console.error('Error renovando URL para imagen:', error.message);
+                                return null;
+                            }
+                        })
+                    );
+                    contract.images = images.filter(img => img !== null);
+                }
+                delete contract.image_data;
+                return contract;
+            })
+        );
+
+        return processedResults;
     }
 
     static async getActiveContracts() {
