@@ -216,6 +216,7 @@ const firebaseLogin = async (req, res) => {
             nombre: userData.user_name,
             apellido: userData.user_lastname,
             email: userData.user_email,
+            telefono: userData.user_phonenumber,
             photoURL: userData.profile_image,
             rol: userData.rol_id || null
         };

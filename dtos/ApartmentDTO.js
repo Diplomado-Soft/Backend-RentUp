@@ -18,6 +18,8 @@ class ApartmentDTO {
         this.publication_status = apartment.publication_status || 'pending';
         this.status = apartment.status || 'available';
         this.images = apartment.images || [];
+        this.user_name = apartment.user_name || null;
+        this.user_lastname = apartment.user_lastname || null;
         this.user_phonenumber = apartment.user_phonenumber || null;
         this.whatsapp = apartment.whatsapp || null;
     }

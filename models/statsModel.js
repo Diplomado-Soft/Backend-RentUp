@@ -146,6 +146,100 @@ class Stats {
             throw error;
         }
     }
+
+    static async getOccupationTrend(days = 30) {
+        try {
+            const [rows] = await db.query(`
+                SELECT
+                    DATE(ra.start_date) AS date,
+                    COUNT(*) AS contracts
+                FROM rental_agreements ra
+                WHERE ra.status = 'active'
+                  AND ra.start_date >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
+                GROUP BY DATE(ra.start_date)
+                ORDER BY date ASC
+            `, [parseInt(days)]);
+
+            const totalApproved = await db.query(
+                `SELECT COUNT(*) AS count FROM apartments WHERE publication_status = 'approved'`
+            );
+            const approvedCount = totalApproved[0][0]?.count || 1;
+
+            const filled = rows.map(r => ({
+                date: r.date,
+                contracts: r.contracts,
+                occupancy_pct: Math.min(100, Math.round((r.contracts / approvedCount) * 100))
+            }));
+
+            return filled;
+        } catch (error) {
+            console.error("Error en Stats.getOccupationTrend:", error);
+            throw error;
+        }
+    }
+
+    static async getRevenueByZone() {
+        try {
+            const [rows] = await db.query(`
+                SELECT
+                    b.barrio AS zone,
+                    COALESCE(SUM(ra.monthly_rent), 0) AS total_revenue,
+                    COUNT(ra.agreement_id) AS contract_count
+                FROM barrio b
+                LEFT JOIN apartments a ON b.id_barrio = a.id_barrio
+                LEFT JOIN rental_agreements ra ON a.id_apt = ra.property_id AND ra.status = 'active'
+                GROUP BY b.id_barrio, b.barrio
+                HAVING total_revenue > 0
+                ORDER BY total_revenue DESC
+            `);
+
+            const maxRevenue = rows.length > 0 ? Math.max(...rows.map(r => r.total_revenue)) : 1;
+            return rows.map(r => ({
+                zone: r.zone,
+                amount: r.total_revenue,
+                pct: Math.round((r.total_revenue / maxRevenue) * 100),
+                contracts: r.contract_count
+            }));
+        } catch (error) {
+            console.error("Error en Stats.getRevenueByZone:", error);
+            throw error;
+        }
+    }
+
+    static async getVacancyRate() {
+        try {
+            const [[{ total_approved, vacant, occupied }]] = await db.query(`
+                SELECT
+                    COUNT(*) AS total_approved,
+                    SUM(CASE WHEN a.id_apt NOT IN (
+                        SELECT ra.property_id FROM rental_agreements ra WHERE ra.status = 'active'
+                    ) THEN 1 ELSE 0 END) AS vacant,
+                    SUM(CASE WHEN a.id_apt IN (
+                        SELECT ra.property_id FROM rental_agreements ra WHERE ra.status = 'active'
+                    ) THEN 1 ELSE 0 END) AS occupied
+                FROM apartments a
+                WHERE a.publication_status = 'approved'
+            `);
+
+            const vacancyRate = total_approved > 0
+                ? Math.round((vacant / total_approved) * 1000) / 10
+                : 0;
+            const occupancyRate = total_approved > 0
+                ? Math.round((occupied / total_approved) * 1000) / 10
+                : 0;
+
+            return {
+                vacancy_rate: vacancyRate,
+                occupancy_rate: occupancyRate,
+                total_approved,
+                vacant,
+                occupied
+            };
+        } catch (error) {
+            console.error("Error en Stats.getVacancyRate:", error);
+            throw error;
+        }
+    }
 }
 
-module.exports = Stats;  // Exporta el modelo para usarlo en otros archivos
+module.exports = Stats;
