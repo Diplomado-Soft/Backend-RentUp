@@ -229,7 +229,7 @@ class Apartment {
                     apartment.images = images.filter(img => img !== null);
                 }
                 delete apartment.image_data;
-                
+
                 // Agregar info de publicación para que el landlord vea el estado
                 apartment.publicationInfo = {
                     status: apartment.publication_status || 'pending',
@@ -241,6 +241,16 @@ class Apartment {
                 return apartment;
             })
         );
+
+        // Enriquecer con KYC por lotes
+        const aptIds = processedResults.map(a => a.id_apt).filter(Boolean);
+        const kycMap = await this.getKycByApartmentIds(aptIds);
+        processedResults.forEach(apt => {
+            const kyc = kycMap[apt.id_apt];
+            apt.id_document_url = kyc?.id_document_url || null;
+            apt.property_certificate_url = kyc?.property_certificate_url || null;
+            apt.kyc_status = kyc?.status || null;
+        });
 
         return processedResults;
     }
@@ -399,6 +409,89 @@ class Apartment {
 
     // ===== MÉTODOS PARA FLUJO DE APROBACIÓN (T-19) =====
 
+    static async getApartmentById(id) {
+        try {
+            const [results] = await db.query(
+                `SELECT
+                    a.*,
+                    b.barrio,
+                    u.user_id,
+                    u.user_name,
+                    u.user_lastname,
+                    u.user_email,
+                    u.user_phonenumber,
+                    u.whatsapp,
+                    GROUP_CONCAT(
+                        DISTINCT CONCAT(ai.id_image, ':', ai.s3_key)
+                    ) AS image_data
+                FROM apartments AS a
+                LEFT JOIN barrio AS b ON a.id_barrio = b.id_barrio
+                LEFT JOIN users AS u ON a.user_id = u.user_id
+                LEFT JOIN apartment_images AS ai ON a.id_apt = ai.id_apt
+                WHERE a.id_apt = ?
+                GROUP BY a.id_apt`,
+                [id]
+            );
+
+            if (!results[0]) return null;
+
+            const apt = results[0];
+            if (apt.image_data) {
+                const { getValidSignedUrl } = require('../services/urlRefreshService');
+                const imagePairs = apt.image_data.split(',');
+                apt.images = await Promise.all(
+                    imagePairs.map(async pair => {
+                        try {
+                            const [imgId, s3_key] = pair.split(':');
+                            const { signedUrl, expiresAt } = await getValidSignedUrl(parseInt(imgId));
+                            return { id: imgId, s3_key, url: signedUrl, expiresAt };
+                        } catch { return null; }
+                    })
+                );
+                apt.images = apt.images.filter(img => img !== null);
+            } else {
+                apt.images = [];
+            }
+            delete apt.image_data;
+
+            // Obtener KYC por separado (seguro, sin JOIN)
+            const kycMap = await this.getKycByApartmentIds([id]);
+            const kyc = kycMap[id];
+            apt.id_document_url = kyc?.id_document_url || null;
+            apt.property_certificate_url = kyc?.property_certificate_url || null;
+            apt.kyc_status = kyc?.status || null;
+
+            return apt;
+        } catch (error) {
+            console.error('Error en getApartmentById:', error);
+            throw new Error('Error al obtener los datos del apartamento');
+        }
+    }
+
+    static async getKycByApartmentIds(apartmentIds) {
+        if (!apartmentIds || apartmentIds.length === 0) return {};
+        try {
+            const placeholders = apartmentIds.map(() => '?').join(',');
+            const [rows] = await db.query(
+                `SELECT lv1.*
+                 FROM landlord_verification lv1
+                 INNER JOIN (
+                     SELECT apartment_id, MAX(id) AS max_id
+                     FROM landlord_verification
+                     WHERE apartment_id IN (${placeholders})
+                     GROUP BY apartment_id
+                 ) lv2 ON lv1.id = lv2.max_id`,
+                apartmentIds
+            );
+            const map = {};
+            rows.forEach(r => { map[r.apartment_id] = r; });
+            return map;
+        } catch (error) {
+            console.warn('⚠️ No se pudo obtener KYC (tabla no existe?):', error.message);
+            return {};
+        }
+    }
+
     static async getPendingApartments(limit = 50, offset = 0) {
         const connection = await db.getConnection();
         try {
@@ -428,6 +521,16 @@ class Apartment {
                     ? apt.image_urls.split('||').filter(Boolean).map(url => ({ url }))
                     : [];
                 delete apt.image_urls;
+            });
+
+            // Enriquecer con datos KYC en una segunda consulta segura
+            const aptIds = results.map(a => a.id_apt).filter(Boolean);
+            const kycMap = await this.getKycByApartmentIds(aptIds);
+            results.forEach(apt => {
+                const kyc = kycMap[apt.id_apt];
+                apt.id_document_url = kyc?.id_document_url || null;
+                apt.property_certificate_url = kyc?.property_certificate_url || null;
+                apt.kyc_status = kyc?.status || null;
             });
 
             const [countResult] = await connection.query(

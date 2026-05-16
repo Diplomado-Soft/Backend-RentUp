@@ -3,7 +3,11 @@ const sharp = require('sharp');
 const idriveService = require('../utils/idriveService');
 require('dotenv').config();
 
-const ALLOWED_FORMATS = new Set(['jpeg', 'png', 'webp', 'svg']);
+const ALLOWED_IMAGE_FORMATS = new Set(['jpeg', 'png', 'webp', 'svg']);
+const ALLOWED_KYC_MIMES = new Set([
+    'image/jpeg', 'image/png', 'image/webp',
+    'application/pdf'
+]);
 const MAX_IMAGE_DIMENSION = 1920;
 
 const storage = multer.memoryStorage();
@@ -11,8 +15,8 @@ const storage = multer.memoryStorage();
 exports.upload = multer({
     storage,
     limits: {
-        fileSize: process.env.MAX_FILE_SIZE || 10 * 1024 * 1024,
-        files: process.env.MAX_FILES || 10
+        fileSize: process.env.MAX_FILE_SIZE || 15 * 1024 * 1024,
+        files: 15
     }
 });
 
@@ -26,21 +30,54 @@ async function detectImageFormat(buffer) {
 }
 
 exports.validateFiles = async (req, res, next) => {
-    if (!req.files?.length) return next();
+    // req.files puede ser array (upload.array) u objeto (upload.fields)
+    const raw = req.files;
+    if (!raw) return next();
+    const files = Array.isArray(raw) ? raw : Object.values(raw).flat();
+    if (files.length === 0) return next();
+
+    const kycFieldNames = new Set(['id_document', 'property_certificate']);
 
     try {
         req.processedFiles = [];
+        req.kycDocuments = {};
         const userId = req.user?.id;
-        const apartmentId = req.body?.apartmentId;
 
         if (!userId) {
             throw new Error('Usuario no autenticado');
         }
 
-        for (const file of req.files) {
+        for (const file of files) {
+            const fieldName = file.fieldname;
+
+            // ============ KYC DOCUMENTS (id_document, property_certificate) ============
+            if (kycFieldNames.has(fieldName)) {
+                if (!ALLOWED_KYC_MIMES.has(file.mimetype)) {
+                    throw new Error(`Tipo de archivo no permitido para ${fieldName}: ${file.originalname}. Solo JPG, PNG y PDF`);
+                }
+
+                const uploadResult = await idriveService.uploadDocument(
+                    file.buffer,
+                    userId,
+                    fieldName,
+                    file.originalname,
+                    file.mimetype
+                );
+
+                req.kycDocuments[fieldName] = {
+                    key: uploadResult.key,
+                    url: uploadResult.signedUrl,
+                    expiresAt: uploadResult.expiresAt
+                };
+
+                console.log(`✅ Documento KYC procesado: ${fieldName} -> ${uploadResult.key}`);
+                continue;
+            }
+
+            // ============ APARTMENT IMAGES (fieldname = 'images' o 'new_images') ============
             try {
                 const format = await detectImageFormat(file.buffer);
-                if (!format || !ALLOWED_FORMATS.has(format)) {
+                if (!format || !ALLOWED_IMAGE_FORMATS.has(format)) {
                     throw new Error(`Tipo de archivo no permitido: ${file.originalname}`);
                 }
 
@@ -57,7 +94,7 @@ exports.validateFiles = async (req, res, next) => {
                 const uploadResult = await idriveService.uploadImage(
                     processedBuffer,
                     userId,
-                    apartmentId || 'temp',
+                    req.body?.apartmentId || 'temp',
                     file.originalname
                 );
 

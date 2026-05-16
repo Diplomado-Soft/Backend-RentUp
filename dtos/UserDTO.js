@@ -14,6 +14,7 @@ class UserDTO {
         this.rol_id = user.rol_id;
         this.profile_image = user.profile_image || null;
         this.phone_confirmed = user.phone_confirmed || false;
+        this.is_verified = !!user.is_verified;
     }
 
     static fromDatabase(user) {

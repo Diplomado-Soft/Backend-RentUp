@@ -133,6 +133,60 @@ exports.isUrlExpired = (expiresAt) => {
 /**
  * Verificar conexión a IDrive e2
  */
+/**
+ * Subir documento (PDF/imagen) a IDrive e2 para KYC
+ * @param {Buffer} fileBuffer - Buffer del archivo
+ * @param {string} userId - ID del usuario
+ * @param {string} docType - Tipo de documento ('id_document' | 'property_certificate')
+ * @param {string} originalName - Nombre original del archivo
+ * @param {string} mimeType - Tipo MIME del archivo
+ * @returns {Promise<{key: string, signedUrl: string, expiresAt: Date}>}
+ */
+exports.uploadDocument = async (fileBuffer, userId, docType, originalName, mimeType) => {
+    try {
+        const timestamp = Date.now();
+        const randomString = Math.round(Math.random() * 1E9);
+        const ext = originalName.split('.').pop() || 'pdf';
+        const key = `kyc/${userId}/${docType}/${timestamp}-${randomString}.${ext}`;
+
+        const uploadCommand = new PutObjectCommand({
+            Bucket: BUCKET_NAME,
+            Key: key,
+            Body: fileBuffer,
+            ContentType: mimeType,
+            Metadata: {
+                'user-id': userId.toString(),
+                'doc-type': docType,
+                'original-name': originalName
+            }
+        });
+
+        await s3Client.send(uploadCommand);
+        console.log(`✅ Documento subido a IDrive e2: ${key}`);
+
+        // Generar URL firmada
+        const getCommand = new GetObjectCommand({
+            Bucket: BUCKET_NAME,
+            Key: key
+        });
+
+        const signedUrl = await generateSignedUrl(s3Client, getCommand, {
+            expiresIn: URL_EXPIRATION
+        });
+
+        const expiresAt = new Date(Date.now() + URL_EXPIRATION * 1000);
+
+        return {
+            key,
+            signedUrl,
+            expiresAt
+        };
+    } catch (error) {
+        console.error('❌ Error al subir documento a IDrive e2:', error.message);
+        throw new Error(`Error al subir documento: ${error.message}`);
+    }
+};
+
 exports.testConnection = async () => {
     try {
         const headCommand = new HeadBucketCommand({ 
