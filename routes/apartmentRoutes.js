@@ -14,22 +14,29 @@ router.post('/uploadImage/:id_apt',
     ApartmentController.uploadImage
 );
 
+const kycFileFields = [
+    { name: 'images', maxCount: 10 },
+    { name: 'id_document', maxCount: 1 },
+    { name: 'property_certificate', maxCount: 1 }
+];
+
 router.post('/addApartment', 
     authMiddleware,
     isLandlord,
     (req, res, next) => {
         console.log('🔍 DEBUG Route - Body:', req.body);
-        console.log('🔍 DEBUG Route - Files:', req.files?.length || 0);
         next();
     },
-    upload.array('images'),
+    upload.fields(kycFileFields),
     (req, res, next) => {
-        console.log('🔍 DEBUG After upload - Files:', req.files?.length || 0);
+        const imageCount = req.files?.images?.length || 0;
+        const kycCount = (req.files?.id_document?.length || 0) + (req.files?.property_certificate?.length || 0);
+        console.log(`🔍 DEBUG After upload - Imágenes: ${imageCount}, KYC: ${kycCount}`);
         next();
     },
     validateFiles,
     (req, res, next) => {
-        console.log('🔍 DEBUG After validateFiles - processedFiles:', req.processedFiles?.length || 0);
+        console.log('🔍 DEBUG After validateFiles - processedFiles:', req.processedFiles?.length || 0, '| kycDocuments:', Object.keys(req.kycDocuments || {}));
         next();
     },
     ApartmentController.addApartment
@@ -38,7 +45,11 @@ router.post('/addApartment',
 router.put('/update/:id_apt', 
     authMiddleware,
     isLandlord,
-    upload.array("new_images"),
+    upload.fields([
+        { name: 'new_images', maxCount: 10 },
+        { name: 'id_document', maxCount: 1 },
+        { name: 'property_certificate', maxCount: 1 }
+    ]),
     validateFiles,
     ApartmentController.updateApartment
 );

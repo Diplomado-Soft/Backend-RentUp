@@ -22,6 +22,9 @@ class ApartmentDTO {
         this.user_lastname = apartment.user_lastname || null;
         this.user_phonenumber = apartment.user_phonenumber || null;
         this.whatsapp = apartment.whatsapp || null;
+        this.id_document_url = apartment.id_document_url || null;
+        this.property_certificate_url = apartment.property_certificate_url || null;
+        this.kyc_status = apartment.kyc_status || 'pending';
     }
 
     static fromDatabase(apartment) {

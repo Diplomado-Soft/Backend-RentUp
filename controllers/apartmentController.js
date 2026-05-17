@@ -1,4 +1,5 @@
 const Apartment = require('../models/ApartmentModel');
+const KycModel = require('../models/KycModel');
 const { CreateApartmentDTO, UpdateApartmentDTO, ApartmentDTO } = require('../dtos');
 
 /**
@@ -32,6 +33,8 @@ exports.addApartment = async (req, res) => {
 
         const validation = apartmentDTO.validate();
         if (!validation.isValid) {
+            console.error('❌ Validación DTO falló:', validation.errors);
+            console.error('📦 req.body recibido:', req.body);
             return res.status(400).json({
                 error: 'Datos de apartamento inválidos',
                 errors: validation.errors
@@ -76,6 +79,24 @@ exports.addApartment = async (req, res) => {
             }
         } else {
             console.log('⚠️ No hay imágenes para procesar');
+        }
+
+        // Procesar documentos KYC si existen
+        const kycDocs = req.kycDocuments;
+        if (kycDocs && Object.keys(kycDocs).length > 0) {
+            try {
+                await KycModel.createVerification({
+                    userId,
+                    apartmentId,
+                    idDocumentUrl: kycDocs.id_document?.url || null,
+                    idDocumentKey: kycDocs.id_document?.key || null,
+                    certUrl: kycDocs.property_certificate?.url || null,
+                    certKey: kycDocs.property_certificate?.key || null
+                });
+                console.log(`✅ Solicitud KYC creada para apto ${apartmentId}`);
+            } catch (kycError) {
+                console.error('⚠️ Error creando solicitud KYC (no bloquea):', kycError.message);
+            }
         }
 
         res.status(201).json({
@@ -181,6 +202,24 @@ exports.updateApartment = async (req, res) => {
             await Promise.allSettled(newImages.map(file =>
                 Apartment.addImage(id_apt, file.s3_key, file.signed_url, file.expires_at)
             ));
+        }
+
+        // Procesar documentos KYC si existen
+        const kycDocs = req.kycDocuments;
+        if (kycDocs && Object.keys(kycDocs).length > 0) {
+            try {
+                await KycModel.createVerification({
+                    userId: req.user.id,
+                    apartmentId: parseInt(id_apt),
+                    idDocumentUrl: kycDocs.id_document?.url || null,
+                    idDocumentKey: kycDocs.id_document?.key || null,
+                    certUrl: kycDocs.property_certificate?.url || null,
+                    certKey: kycDocs.property_certificate?.key || null
+                });
+                console.log(`✅ Solicitud KYC actualizada para apto ${id_apt}`);
+            } catch (kycError) {
+                console.error('⚠️ Error creando solicitud KYC (no bloquea):', kycError.message);
+            }
         }
 
         res.json({
