@@ -232,4 +232,48 @@ const sendPasswordResetEmail = async (email, nombre, apellido, resetCode) => {
     }
 };
 
-module.exports = { sendWelcomeEmail, sendContractAgreementEmail, sendApartmentRejectionEmail, sendApartmentApprovalEmail, sendUserBlockEmail, sendPasswordResetEmail };
+const sendEmailAccountDelete = async (email, nombre, apellido, reactivationDate) => {
+    try {
+        const info = await transporter.sendMail({
+            from: `"RentUp" <${process.env.GMAIL_USER}>`,
+            to: email,
+            subject: 'Tu cienta fue eliminada - RentUp',
+            html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin:0 auto;">
+                    <h2 style="color: #e74c3c;">Cuenta eliminada temporalmente</h2>
+                    <p>Hola ${nombre} ${apellido},</p>
+
+                    <p>Recibimos la solicitud de eliminación de tu cuenta asociada a Google y tu cuenta fue desactivada temporalmente.</p>
+
+                    <div style="background-color:#fff3f3; padding:16px; border-radius:8px; margin:20px 0; border-left:4px solid #e74c3c;">
+                        <p style="margin:0;">
+                            <strong>Reactivación:</strong> podrás iniciar sesión nuevamente a partir del
+                            <strong>${reactivationDate}</strong> (15 días).
+                        </p>
+                    </div>
+
+                    <p>Si no reconoces esta acción, por favor contacta al soporte.</p>
+
+                    <hr style="margin-top: 30px;" />
+                    <p style="font-size: 12px; color: #666;">Este es un correo automático, por favor no respondas a este mensaje.</p>
+                </div>
+            `
+        });
+
+        console.log("Correo de cuenta eliminada enviado");
+        return { success: true, info };
+    } catch (error) {
+        console.log("Error al enviar el correo de eliminar cuenta");
+        return { success: false, error };
+    }
+};
+
+module.exports = {
+    sendWelcomeEmail,
+    sendContractAgreementEmail,
+    sendApartmentRejectionEmail,
+    sendApartmentApprovalEmail,
+    sendUserBlockEmail,
+    sendPasswordResetEmail,
+    sendEmailAccountDelete
+};

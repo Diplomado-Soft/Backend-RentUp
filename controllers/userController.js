@@ -2,9 +2,10 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/userModel');
 const bcrypt = require('bcryptjs');
 const { generateToken } = require('../utils/auth');
-const { sendWelcomeEmail, sendUserBlockEmail } = require('../utils/emailService');
+const { sendWelcomeEmail, sendUserBlockEmail, sendEmailAccountDelete } = require('../utils/emailService');
 const { CreateUserDTO, UpdateUserDTO, UserDTO } = require('../dtos');
 const db = require('../config/db');
+const { use } = require('react');
 require('dotenv').config();
 
 exports.getUserData = async (req, res) => {
@@ -161,7 +162,24 @@ exports.login = async (req, res) => {
         }
 
         if (user.is_active === false) {
-            return res.status(403).json({ error: 'Usuario no encontrado o cuenta eliminada' });
+            // return res.status(403).json({ error: 'Usuario no encontrado o cuenta eliminada' });
+            const reactivationAt = user.account_reactivation_at ? new Date(user.account_reactivation_at) : null;
+
+            if(reactivationAt && Date.now() < reactivationAt.getTime()) {
+                const formatted = reactivationAt.toLocaleDateString('es-CO', {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit'
+                });
+
+                return res.status(403).json({
+                    error: `Tu cuenta está desactivada temporalmente. Podrás iniciar sesión nuevamente el ${formatted}.`
+                });
+            }
+
+            return res.status(403).json({
+                error: 'Tu cuenta está bloqueada. Contacta al administrador.'
+            });
         }
 
         // Verificar si el usuario usa Google OAuth
@@ -300,14 +318,40 @@ exports.deleteAccount = async (req, res) => {
         // ❌ NO borrar rol
         // ✅ Solo desactivar usuario
 
+        const [userRows] = await db.query(
+            `SELECT user_email, user_name, user_lastname FROM users WHERE user_id = ?`,
+            [userId]
+        );
+
+        if (!userRows || userRows.length === 0) {
+            return res.status(404).json({ error: 'Usuario no encontrado' });
+        }
+
+        const {user_email, user_name, user_lastname} = userRows[0];
+
         const [result] = await db.query(
-            'UPDATE users SET is_active = FALSE WHERE user_id = ?',
+            `UPDATE users
+             SET is_active = FALSE,
+                 account_deactivated_at = NOW(),
+                 account_reactivation_at = DATE_ADD(NOW(), INTERVAL 15 DAY)
+             WHERE user_id = ?`,
             [userId]
         );
 
         if (result.affectedRows === 0) {
-            return res.status(404).json({ error: 'Usuario no encontrado' });
+            return res.status(404).json({error: 'Usuario no encontrado'})
         }
+
+        // Calcular fecha
+        const reactivationDate = new Date(Date.now() + 15 * 24 * 60 * 1000);
+        const reactivationDateFormated = reactivationDate.toLocaleDateString('es-CO', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit'
+        });
+
+        sendEmailAccountDelete(user_email, user_name, user_lastname, reactivationDateFormated)
+        .catch(err=> console.log('Error enviando el correo de eliminacion de cuenta', err.message || err));
 
         res.json({
             success: true,
