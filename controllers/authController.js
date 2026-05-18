@@ -99,10 +99,26 @@ const firebaseLogin = async (req, res) => {
 
             // Verificar si la cuenta está bloqueada
             if (!userData.is_active) {
+                const reactivationAt = userData.account_reactivation_at ? new Date(userData.account_reactivation_at) : null;
+
+                if (reactivationAt && Date.now() < reactivationAt.getTime()) {
+                    const formatted = reactivationAt.toLocaleDateString('es-CO', {
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit'
+                    });
+
+                    console.log(`[${requestId}] Cuenta desactivada temporalmente:`, userId);
+                    return res.status(403).json({
+                        success: false,
+                        error: `Tu cuenta está desactivada temporalmente. Podrás iniciar sesión nuevamente el ${formatted}.`
+                    });
+                }
+
                 console.log(`[${requestId}] Cuenta bloqueada:`, userId);
                 return res.status(403).json({
                     success: false,
-                    error: 'Esta cuenta ha sido bloqueada. Contacta al administrador.'
+                    error: 'Tu cuenta está bloqueada. Contacta al administrador.'
                 });
             }
 
