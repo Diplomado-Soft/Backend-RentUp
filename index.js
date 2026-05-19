@@ -101,7 +101,9 @@ const reportRoutes = require('./routes/reportRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const geolocationRoutes = require('./routes/geolocationRoutes');
 const kycRoutes = require('./routes/kycRoutes');
+const maintenanceRoutes = require('./routes/maintenanceRoutes');
 const KycModel = require('./models/KycModel');
+const MaintenanceModel = require('./models/MaintenanceModel');
 const { ChatModel } = require('./chat/chatModel');
 
 app.use('/users', userRoutes);
@@ -119,6 +121,7 @@ app.use('/admin/notifications', notificationRoutes);
 app.use('/admin/users', adminUserRoutes);
 app.use('/geolocation', geolocationRoutes);
 app.use('/kyc', kycRoutes);
+app.use('/maintenance', maintenanceRoutes);
 
 // === Manejo de errores ===
 app.use((_, res) => res.status(404).json({ error: 'Endpoint no encontrado' }));
@@ -236,6 +239,7 @@ module.exports.emitAdminNotification = emitAdminNotification;
         try {
             await ChatModel.init();
             await KycModel.init();
+            await MaintenanceModel.init();
             console.log('✅ Modelos inicializados');
         } catch (modelErr) {
             console.warn('⚠️ Advertencia inicializando modelos:', modelErr.message);

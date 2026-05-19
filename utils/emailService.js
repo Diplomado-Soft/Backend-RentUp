@@ -268,6 +268,39 @@ const sendEmailAccountDelete = async (email, nombre, apellido, reactivationDate)
     }
 };
 
+const sendMaintenanceNotificationEmail = async (email, nombre, apellido, report) => {
+    try {
+        const priorityLabels = { low: 'Baja', medium: 'Media', high: 'Alta', urgent: 'Urgente' };
+        const info = await transporter.sendMail({
+            from: `"RentUp" <${process.env.GMAIL_USER}>`,
+            to: email,
+            subject: `🔧 Nuevo reporte de mantenimiento - ${report.title}`,
+            html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin:0 auto;">
+                    <h2 style="color: #e67e22;">Nuevo reporte de mantenimiento</h2>
+                    <p>Hola ${nombre} ${apellido},</p>
+                    <p>Un inquilino ha reportado un problema en una de tus propiedades.</p>
+                    <div style="background-color: #fef9e7; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #e67e22;">
+                        <p><strong>Título:</strong> ${report.title}</p>
+                        <p><strong>Descripción:</strong> ${report.description || 'Sin descripción'}</p>
+                        <p><strong>Prioridad:</strong> ${priorityLabels[report.priority] || report.priority}</p>
+                        <p><strong>Fecha:</strong> ${new Date(report.created_at || Date.now()).toLocaleDateString('es-CO')}</p>
+                    </div>
+                    <p>Ingresa a tu panel para gestionar este reporte.</p>
+                    <p><strong>RentUp</strong></p>
+                    <hr style="margin-top: 30px;" />
+                    <p style="font-size: 12px; color: #666;">Este es un correo automático, por favor no respondas a este mensaje.</p>
+                </div>
+            `
+        });
+        console.log('Correo de mantenimiento enviado:', info.messageId);
+        return { success: true, info };
+    } catch (error) {
+        console.error('Error enviando correo de mantenimiento:', error.message);
+        return { success: false, error };
+    }
+};
+
 module.exports = {
     sendWelcomeEmail,
     sendContractAgreementEmail,
@@ -275,5 +308,6 @@ module.exports = {
     sendApartmentApprovalEmail,
     sendUserBlockEmail,
     sendPasswordResetEmail,
-    sendEmailAccountDelete
+    sendEmailAccountDelete,
+    sendMaintenanceNotificationEmail
 };

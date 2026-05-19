@@ -74,7 +74,7 @@ exports.validateFiles = async (req, res, next) => {
                 continue;
             }
 
-            // ============ APARTMENT IMAGES (fieldname = 'images' o 'new_images') ============
+            // ============ IMAGES (fieldname = 'images', 'new_images', or 'image') ============
             try {
                 const format = await detectImageFormat(file.buffer);
                 if (!format || !ALLOWED_IMAGE_FORMATS.has(format)) {
