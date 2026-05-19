@@ -187,6 +187,24 @@ exports.uploadDocument = async (fileBuffer, userId, docType, originalName, mimeT
     }
 };
 
+/**
+ * Eliminar imagen de IDrive e2 usando la URL firmada
+ * @param {string} imageUrl - URL firmada de la imagen
+ */
+exports.deleteImageByUrl = async (imageUrl) => {
+    if (!imageUrl) return;
+    try {
+        const key = imageUrl.split(`${BUCKET_NAME}/`)[1]?.split('?')[0];
+        if (!key) {
+            console.warn('No se pudo extraer la key de la URL:', imageUrl);
+            return;
+        }
+        await exports.deleteImage(key);
+    } catch (error) {
+        console.error('Error al eliminar imagen por URL:', error.message);
+    }
+};
+
 exports.testConnection = async () => {
     try {
         const headCommand = new HeadBucketCommand({ 
