@@ -9,6 +9,7 @@ router.use(authMiddleware);
 
 // IMPORTANT: Define specific routes BEFORE generic param routes to avoid conflicts
 router.get("/conversaciones/:arrendador_id", ChatController.obtenerConversacionesArrendador);
+router.get("/conversaciones-inquilino/:inquilino_id", ChatController.obtenerConversacionesInquilino);
 router.get("/:emisor_id/:receptor_id", ChatController.obtenerConversacion);
 
 module.exports = router;
