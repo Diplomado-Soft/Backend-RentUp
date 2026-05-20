@@ -16,6 +16,20 @@ const ChatController = {
     }
   },
 
+  async obtenerConversacionesInquilino(req, res) {
+    try {
+      const { inquilino_id } = req.params;
+      if (!inquilino_id || isNaN(inquilino_id)) {
+        return res.status(400).json({ message: 'ID de inquilino inválido' });
+      }
+      const conversaciones = await ChatModel.obtenerConversacionesInquilino(inquilino_id);
+      res.json(conversaciones);
+    } catch (error) {
+      console.error("Error al obtener conversaciones del inquilino:", error);
+      res.status(500).json({ message: "Error al obtener las conversaciones" });
+    }
+  },
+
   async obtenerConversacionesArrendador(req, res) {
     try {
       const { arrendador_id } = req.params;

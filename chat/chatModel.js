@@ -37,6 +37,50 @@ const ChatModel = {
     return rows;
   },
 
+  async obtenerConversacionesInquilino(inquilino_id) {
+    const sql = `
+      SELECT DISTINCT
+        u.user_id AS usuario_id,
+        u.user_name AS usuario_nombre,
+        u.user_lastname AS usuario_apellido,
+        u.user_email AS usuario_email,
+        (
+          SELECT contenido FROM mensajes 
+          WHERE (emisor_id = u.user_id AND receptor_id = ?) OR (emisor_id = ? AND receptor_id = u.user_id)
+          ORDER BY fecha_envio DESC LIMIT 1
+        ) AS ultimo_mensaje,
+        (
+          SELECT MAX(fecha_envio) FROM mensajes 
+          WHERE (emisor_id = u.user_id AND receptor_id = ?) OR (emisor_id = ? AND receptor_id = u.user_id)
+        ) AS ultimo_mensaje_fecha,
+        (
+          SELECT COUNT(*) FROM mensajes m3
+          WHERE m3.emisor_id = u.user_id
+            AND m3.receptor_id = ?
+            AND m3.leido = FALSE
+        ) AS mensajes_no_leidos,
+        (
+          SELECT GROUP_CONCAT(a.direccion_apt SEPARATOR ' | ')
+          FROM rental_agreements ra
+          JOIN apartments a ON ra.property_id = a.id_apt
+          WHERE ra.tenant_id = ? AND ra.landlord_id = u.user_id AND ra.status = 'active'
+        ) AS propiedades_asociadas
+      FROM users u
+      INNER JOIN mensajes m ON (m.emisor_id = u.user_id AND m.receptor_id = ?) OR (m.emisor_id = ? AND m.receptor_id = u.user_id)
+      WHERE u.user_id != ?
+      ORDER BY ultimo_mensaje_fecha DESC
+    `;
+    const [rows] = await db.query(sql, [
+      inquilino_id, inquilino_id,
+      inquilino_id, inquilino_id,
+      inquilino_id,
+      inquilino_id,
+      inquilino_id, inquilino_id,
+      inquilino_id
+    ]);
+    return rows;
+  },
+
   async obtenerConversacionesArrendador(arrendador_id) {
     const sql = `
       SELECT DISTINCT
