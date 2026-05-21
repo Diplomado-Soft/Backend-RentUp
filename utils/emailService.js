@@ -301,6 +301,117 @@ const sendMaintenanceNotificationEmail = async (email, nombre, apellido, report)
     }
 };
 
+const sendPaymentConfirmationEmail = async (email, nombre, apellido, amount, direccion, paymentId, receiptUrl, isLandlord = false) => {
+    try {
+        const roleLabel = isLandlord ? 'Tu inquilino ha realizado un pago' : 'Has realizado un pago exitosamente';
+        const info = await transporter.sendMail({
+            from: `"RentUp" <${process.env.GMAIL_USER}>`,
+            to: email,
+            subject: `${
+                isLandlord ? '💰 Pago recibido' : '✅ Pago confirmado'
+            } - RentUp`,
+            html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin:0 auto;">
+                    <h2 style="color: #059669;">${
+                        isLandlord ? '💰 Pago recibido' : '✅ Pago confirmado'
+                    }</h2>
+                    <p>Hola ${nombre} ${apellido},</p>
+                    <p>${roleLabel}:</p>
+                    <div style="background-color: #ecfdf5; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #059669;">
+                        <p style="margin:0;"><strong>Monto:</strong> $${Number(amount).toLocaleString('es-CO')}</p>
+                        <p style="margin:8px 0 0 0;"><strong>Vivienda:</strong> ${direccion}</p>
+                        <p style="margin:8px 0 0 0;"><strong>Recibo N°:</strong> ${paymentId}</p>
+                        <p style="margin:8px 0 0 0;"><strong>Fecha:</strong> ${new Date().toLocaleDateString('es-CO')}</p>
+                    </div>
+                    ${receiptUrl ? `
+                    <div style="text-align:center; margin: 20px 0;">
+                        <a href="${receiptUrl}" style="background-color: #059669; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Descargar Recibo PDF</a>
+                    </div>` : ''}
+                    <p><strong>RentUp</strong> - Tu plataforma de confianza.</p>
+                    <hr style="margin-top: 30px;" />
+                    <p style="font-size: 12px; color: #666;">Este es un correo automático, por favor no respondas a este mensaje.</p>
+                </div>
+            `
+        });
+        console.log('Correo de pago enviado:', info.messageId);
+        return { success: true, info };
+    } catch (error) {
+        console.error('Error enviando correo de pago:', error.message);
+        return { success: false, error };
+    }
+};
+
+const sendPaymentReminderEmail = async (email, nombre, apellido, amount, direccion, barrio, dueDate) => {
+    try {
+        const daysLeft = Math.ceil((new Date(dueDate) - new Date()) / (1000 * 60 * 60 * 24));
+        const info = await transporter.sendMail({
+            from: `"RentUp" <${process.env.GMAIL_USER}>`,
+            to: email,
+            subject: '🔔 Recordatorio de pago próximo - RentUp',
+            html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin:0 auto;">
+                    <h2 style="color: #d97706;">🔔 Recordatorio de pago</h2>
+                    <p>Hola ${nombre} ${apellido},</p>
+                    <p>Tu pago de arriendo está próximo a vencer:</p>
+                    <div style="background-color: #fffbeb; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #d97706;">
+                        <p style="margin:0;"><strong>Vivienda:</strong> ${direccion}${barrio ? ` (${barrio})` : ''}</p>
+                        <p style="margin:8px 0 0 0;"><strong>Monto:</strong> $${Number(amount).toLocaleString('es-CO')}</p>
+                        <p style="margin:8px 0 0 0;"><strong>Vence en:</strong> ${daysLeft > 0 ? `${daysLeft} días` : 'Hoy'}</p>
+                        <p style="margin:8px 0 0 0;"><strong>Fecha límite:</strong> ${new Date(dueDate).toLocaleDateString('es-CO')}</p>
+                    </div>
+                    <p>Realiza tu pago a tiempo para evitar cargos adicionales.</p>
+                    <p>Puedes pagar desde tu panel de RentUp.</p>
+                    <p><strong>RentUp</strong> - Tu plataforma de confianza.</p>
+                    <hr style="margin-top: 30px;" />
+                    <p style="font-size: 12px; color: #666;">Este es un correo automático, por favor no respondas a este mensaje.</p>
+                </div>
+            `
+        });
+        console.log('Recordatorio de pago enviado:', info.messageId);
+        return { success: true, info };
+    } catch (error) {
+        console.error('Error enviando recordatorio de pago:', error.message);
+        return { success: false, error };
+    }
+};
+
+const sendContractExpirationEmail = async (email, nombre, apellido, direccion, barrio, endDate) => {
+    try {
+        const info = await transporter.sendMail({
+            from: `"RentUp" <${process.env.GMAIL_USER}>`,
+            to: email,
+            subject: '⚠️ Tu contrato de arriendo ha vencido - RentUp',
+            html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin:0 auto;">
+                    <h2 style="color: #b91c1c;">⚠️ Contrato vencido</h2>
+                    <p>Hola ${nombre} ${apellido},</p>
+                    <p>Tu contrato de arriendo ha vencido el ${new Date(endDate).toLocaleDateString('es-CO')}.</p>
+                    <div style="background-color: #fef2f2; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #b91c1c;">
+                        <p style="margin:0;"><strong>Vivienda:</strong> ${direccion}${barrio ? ` (${barrio})` : ''}</p>
+                        <p style="margin:8px 0 0 0;"><strong>Fecha de vencimiento:</strong> ${new Date(endDate).toLocaleDateString('es-CO')}</p>
+                    </div>
+                    <p>Tienes un período de gracia de 7 días para renovar tu contrato desde tu panel de RentUp.</p>
+                    <p>Si no renuevas dentro de este período, la vivienda se marcará como disponible para nuevos inquilinos.</p>
+                    <div style="margin: 25px 0;">
+                        <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/mis-arriendos"
+                           style="background-color: #1e40af; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
+                            Ir a mis contratos
+                        </a>
+                    </div>
+                    <p><strong>RentUp</strong> - Tu plataforma de confianza.</p>
+                    <hr style="margin-top: 30px;" />
+                    <p style="font-size: 12px; color: #666;">Este es un correo automático, por favor no respondas a este mensaje.</p>
+                </div>
+            `
+        });
+        console.log('Correo de vencimiento enviado:', info.messageId);
+        return { success: true, info };
+    } catch (error) {
+        console.error('Error enviando correo de vencimiento:', error.message);
+        return { success: false, error };
+    }
+};
+
 module.exports = {
     sendWelcomeEmail,
     sendContractAgreementEmail,
@@ -309,5 +420,8 @@ module.exports = {
     sendUserBlockEmail,
     sendPasswordResetEmail,
     sendEmailAccountDelete,
-    sendMaintenanceNotificationEmail
+    sendMaintenanceNotificationEmail,
+    sendPaymentConfirmationEmail,
+    sendPaymentReminderEmail,
+    sendContractExpirationEmail
 };

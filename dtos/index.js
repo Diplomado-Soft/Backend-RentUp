@@ -8,6 +8,7 @@ const { ContractDTO, CreateContractDTO, UpdateContractDTO } = require('./Contrac
 const { NotificationDTO, CreateNotificationDTO, UpdateNotificationDTO } = require('./NotificationDTO');
 const { LoginDTO, RefreshTokenDTO, LogoutDTO } = require('./AuthDTO');
 const { KycDTO } = require('./KycDTO');
+const { PaymentDTO, CreatePaymentDTO } = require('./PaymentDTO');
 
 module.exports = {
     UserDTO,
@@ -28,5 +29,7 @@ module.exports = {
     LoginDTO,
     RefreshTokenDTO,
     LogoutDTO,
-    KycDTO
+    KycDTO,
+    PaymentDTO,
+    CreatePaymentDTO
 };

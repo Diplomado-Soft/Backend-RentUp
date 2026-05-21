@@ -219,10 +219,12 @@ class Contract {
                         );
 
                         if (otherActive.length === 0) {
-                            await connection.execute(
-                                'UPDATE apartments SET status = ? WHERE id_apt = ?',
-                                ['available', property_id]
-                            );
+                            if (status === 'terminated') {
+                                await connection.execute(
+                                    'UPDATE apartments SET status = ? WHERE id_apt = ?',
+                                    ['available', property_id]
+                                );
+                            }
                         }
                     }
                 }
@@ -319,14 +321,98 @@ class Contract {
         return results.length > 0 ? results[0] : null;
     }
 
+    static async renew(agreement_id, newEndDate) {
+        const connection = await db.getConnection();
+        try {
+            await connection.beginTransaction();
+
+            const [contract] = await connection.query(
+                'SELECT * FROM rental_agreements WHERE agreement_id = ? AND status = \'active\'',
+                [agreement_id]
+            );
+
+            if (contract.length === 0) {
+                throw new Error('Contrato no encontrado o no está activo');
+            }
+
+            await connection.execute(
+                'UPDATE rental_agreements SET end_date = ?, status = \'active\' WHERE agreement_id = ?',
+                [newEndDate, agreement_id]
+            );
+
+            await connection.execute(
+                'UPDATE apartments SET status = ? WHERE id_apt = ?',
+                ['rented', contract[0].property_id]
+            );
+
+            await connection.commit();
+
+            const [updated] = await connection.query(
+                'SELECT * FROM rental_agreements WHERE agreement_id = ?',
+                [agreement_id]
+            );
+            return updated[0];
+        } catch (error) {
+            await connection.rollback();
+            throw error;
+        } finally {
+            connection.release();
+        }
+    }
+
+    static async hasAutoExpiredAndMakeAvailable(agreement_id) {
+        const connection = await db.getConnection();
+        try {
+            await connection.beginTransaction();
+
+            const [contract] = await connection.query(
+                'SELECT * FROM rental_agreements WHERE agreement_id = ? AND status = \'active\' AND end_date < CURDATE()',
+                [agreement_id]
+            );
+
+            if (contract.length === 0) return null;
+
+            await connection.execute(
+                'UPDATE rental_agreements SET status = ? WHERE agreement_id = ?',
+                ['expired', agreement_id]
+            );
+
+            const [otherActive] = await connection.query(
+                'SELECT agreement_id FROM rental_agreements WHERE property_id = ? AND status = \'active\' AND agreement_id != ?',
+                [contract[0].property_id, agreement_id]
+            );
+
+            if (otherActive.length === 0) {
+                await connection.execute(
+                    'UPDATE apartments SET status = ? WHERE id_apt = ?',
+                    ['available', contract[0].property_id]
+                );
+            }
+
+            await connection.commit();
+            return contract[0];
+        } catch (error) {
+            await connection.rollback();
+            throw error;
+        } finally {
+            connection.release();
+        }
+    }
+
     static async expireOldContracts() {
         const connection = await db.getConnection();
         try {
             await connection.beginTransaction();
 
             const [expiredContracts] = await connection.query(
-                `SELECT agreement_id, property_id FROM rental_agreements 
-                WHERE status = 'active' AND end_date < CURDATE()`
+                `SELECT r.agreement_id, r.property_id, r.end_date,
+                        a.direccion_apt, b.barrio,
+                        u.user_email, u.user_name, u.user_lastname
+                FROM rental_agreements r
+                JOIN apartments a ON r.property_id = a.id_apt
+                LEFT JOIN barrio b ON a.id_barrio = b.id_barrio
+                JOIN users u ON r.tenant_id = u.user_id
+                WHERE r.status = 'active' AND r.end_date < CURDATE()`
             );
 
             if (expiredContracts.length > 0) {
@@ -335,12 +421,22 @@ class Contract {
                         'UPDATE rental_agreements SET status = ? WHERE agreement_id = ?',
                         ['expired', contract.agreement_id]
                     );
-                    await connection.execute(
-                        'UPDATE apartments SET status = ? WHERE id_apt = ?',
-                        ['available', contract.property_id]
-                    );
+
+                    try {
+                        const { sendContractExpirationEmail } = require('../utils/emailService');
+                        sendContractExpirationEmail(
+                            contract.user_email,
+                            contract.user_name,
+                            contract.user_lastname,
+                            contract.direccion_apt,
+                            contract.barrio,
+                            contract.end_date
+                        ).catch(e => console.error('Error email expiracion:', e.message));
+                    } catch (emailErr) {
+                        console.warn('Error enviando email de expiracion:', emailErr.message);
+                    }
                 }
-                console.log(`Expired ${expiredContracts.length} contracts automatically`);
+                console.log(`Expired ${expiredContracts.length} contracts automatically (emails sent, grace period started)`);
             }
 
             await connection.commit();
@@ -351,6 +447,31 @@ class Contract {
         } finally {
             connection.release();
         }
+    }
+
+    static async releaseExpiredProperties(graceDays = 7) {
+        const [expiredContracts] = await db.query(
+            `SELECT agreement_id, property_id FROM rental_agreements 
+            WHERE status = 'expired' AND end_date < DATE_SUB(CURDATE(), INTERVAL ? DAY)`,
+            [graceDays]
+        );
+
+        if (expiredContracts.length > 0) {
+            for (const contract of expiredContracts) {
+                const [otherActive] = await db.query(
+                    'SELECT agreement_id FROM rental_agreements WHERE property_id = ? AND status = \'active\' AND agreement_id != ?',
+                    [contract.property_id, contract.agreement_id]
+                );
+                if (otherActive.length === 0) {
+                    await db.execute(
+                        'UPDATE apartments SET status = ? WHERE id_apt = ?',
+                        ['available', contract.property_id]
+                    );
+                }
+            }
+            console.log(`Released ${expiredContracts.length} properties after grace period`);
+        }
+        return expiredContracts.length;
     }
 }
 
