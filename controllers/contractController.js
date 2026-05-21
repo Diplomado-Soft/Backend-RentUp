@@ -1,7 +1,18 @@
 const Contract = require('../models/ContractModel');
 const db = require('../config/db');
+const nodemailer = require('nodemailer');
 const { sendContractAgreementEmail } = require('../utils/emailService');
 const { CreateContractDTO, UpdateContractDTO, ContractDTO } = require('../dtos');
+
+const transporter = nodemailer.createTransport({
+    host: 'smtp.gmail.com',
+    port: 587,
+    secure: false,
+    auth: {
+        user: process.env.GMAIL_USER,
+        pass: process.env.GMAIL_APP_PASSWORD
+    }
+});
 
 exports.createContract = async (req, res) => {
     try {
@@ -209,6 +220,131 @@ exports.getMonthlyStats = async (req, res) => {
     } catch (error) {
         console.error('Error obteniendo estadísticas:', error);
         res.status(500).json({ error: 'Error al obtener estadísticas' });
+    }
+};
+
+exports.renewContract = async (req, res) => {
+    try {
+        const userId = req.user?.id || req.user?.userId;
+        const userRole = req.user?.rol;
+        const { agreement_id } = req.params;
+        const { months } = req.body;
+
+        const monthsToAdd = months || 12;
+
+        const contract = await Contract.getById(agreement_id);
+        if (!contract) {
+            return res.status(404).json({ error: 'Contrato no encontrado' });
+        }
+
+        if (userRole !== 1 && userRole !== 2) {
+            return res.status(403).json({ error: 'No autorizado para renovar este contrato' });
+        }
+        if (contract.tenant_id !== userId && contract.landlord_id !== userId) {
+            return res.status(403).json({ error: 'No eres parte de este contrato' });
+        }
+        if (contract.status !== 'active') {
+            return res.status(400).json({ error: 'Solo se pueden renovar contratos activos' });
+        }
+
+        const currentEnd = new Date(contract.end_date);
+        const newEnd = new Date(currentEnd);
+        newEnd.setMonth(newEnd.getMonth() + monthsToAdd);
+
+        const renewed = await Contract.renew(parseInt(agreement_id), newEnd.toISOString().split('T')[0]);
+
+        try {
+            const [tenant] = await db.query(
+                'SELECT user_name, user_lastname, user_email FROM users WHERE user_id = ?',
+                [contract.tenant_id]
+            );
+            const [landlord] = await db.query(
+                'SELECT user_name, user_lastname, user_email FROM users WHERE user_id = ?',
+                [contract.landlord_id]
+            );
+            const [apt] = await db.query(
+                'SELECT direccion_apt FROM apartments WHERE id_apt = ?',
+                [contract.property_id]
+            );
+
+            const subject = 'Contrato renovado exitosamente - RentUp';
+            const message = `
+                <div style="font-family: Arial, sans-serif;">
+                    <h2 style="color: #2e5a88;">¡Contrato renovado!</h2>
+                    <p>Tu contrato de arriendo ha sido renovado exitosamente.</p>
+                    <div style="background: #eef3f9; padding: 16px; border-radius: 8px; margin: 16px 0;">
+                        <p><strong>Vivienda:</strong> ${apt[0]?.direccion_apt || 'N/A'}</p>
+                        <p><strong>Nueva fecha de fin:</strong> ${newEnd.toLocaleDateString('es-CO')}</p>
+                        <p><strong>Meses renovados:</strong> ${monthsToAdd}</p>
+                    </div>
+                </div>
+            `;
+
+            if (tenant.length > 0) {
+                await transporter.sendMail({
+                    from: `"RentUp" <${process.env.GMAIL_USER}>`,
+                    to: tenant[0].user_email,
+                    subject,
+                    html: message
+                }).catch(e => console.error('Error email renovación tenant:', e.message));
+            }
+            if (landlord.length > 0) {
+                await transporter.sendMail({
+                    from: `"RentUp" <${process.env.GMAIL_USER}>`,
+                    to: landlord[0].user_email,
+                    subject,
+                    html: message
+                }).catch(e => console.error('Error email renovación landlord:', e.message));
+            }
+        } catch (emailErr) {
+            console.error('Error enviando correo de renovación:', emailErr.message);
+        }
+
+        res.json({
+            message: 'Contrato renovado exitosamente',
+            contract: ContractDTO.fromDatabase(renewed)
+        });
+
+    } catch (error) {
+        console.error('Error renovando contrato:', error);
+        res.status(500).json({ error: 'Error al renovar el contrato', message: error.message });
+    }
+};
+
+exports.endAndMakeAvailable = async (req, res) => {
+    try {
+        const userId = req.user?.id || req.user?.userId;
+        const userRole = req.user?.rol;
+        const { agreement_id } = req.params;
+
+        const contract = await Contract.getById(agreement_id);
+        if (!contract) {
+            return res.status(404).json({ error: 'Contrato no encontrado' });
+        }
+
+        if (userRole !== 1 && userRole !== 2) {
+            return res.status(403).json({ error: 'No autorizado' });
+        }
+        if (contract.tenant_id !== userId && contract.landlord_id !== userId) {
+            return res.status(403).json({ error: 'No eres parte de este contrato' });
+        }
+        if (contract.status !== 'active') {
+            return res.status(400).json({ error: 'El contrato no está activo' });
+        }
+
+        const expired = await Contract.hasAutoExpiredAndMakeAvailable(parseInt(agreement_id));
+        if (!expired) {
+            return res.status(400).json({ error: 'No se pudo finalizar el contrato' });
+        }
+
+        res.json({
+            message: 'Contrato finalizado y vivienda marcada como disponible',
+            agreement_id
+        });
+
+    } catch (error) {
+        console.error('Error finalizando contrato:', error);
+        res.status(500).json({ error: 'Error al finalizar el contrato', message: error.message });
     }
 };
 

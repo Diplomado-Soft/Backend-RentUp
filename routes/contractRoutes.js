@@ -14,5 +14,7 @@ router.post('/expire-old', contractController.expireOldContracts);
 router.get('/:agreement_id', authMiddleware, contractController.getContractById);
 router.put('/:agreement_id/status', authMiddleware, contractController.updateContractStatus);
 router.get('/stats/monthly', authMiddleware, contractController.getMonthlyStats);
+router.post('/:agreement_id/renew', authMiddleware, contractController.renewContract);
+router.post('/:agreement_id/end', authMiddleware, contractController.endAndMakeAvailable);
 
 module.exports = router;

@@ -63,6 +63,9 @@ app.use((req, res, next) => {
     next();
 });
 
+// Stripe webhook necesita raw body (debe ir antes de express.json)
+app.use('/payments/webhook', express.raw({ type: 'application/json' }));
+
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
@@ -102,8 +105,11 @@ const notificationRoutes = require('./routes/notificationRoutes');
 const geolocationRoutes = require('./routes/geolocationRoutes');
 const kycRoutes = require('./routes/kycRoutes');
 const maintenanceRoutes = require('./routes/maintenanceRoutes');
+const paymentRoutes = require('./routes/paymentRoutes');
+const paymentController = require('./controllers/paymentController');
 const KycModel = require('./models/KycModel');
 const MaintenanceModel = require('./models/MaintenanceModel');
+const PaymentModel = require('./models/PaymentModel');
 const { ChatModel } = require('./chat/chatModel');
 
 app.use('/users', userRoutes);
@@ -122,6 +128,9 @@ app.use('/admin/users', adminUserRoutes);
 app.use('/geolocation', geolocationRoutes);
 app.use('/kyc', kycRoutes);
 app.use('/maintenance', maintenanceRoutes);
+// Webhook de Stripe (body crudo, sin JSON parse)
+app.post('/payments/webhook', paymentController.handleWebhook,express.raw({ type: 'application/json' }));
+app.use('/payments', paymentRoutes);
 
 // === Manejo de errores ===
 app.use((_, res) => res.status(404).json({ error: 'Endpoint no encontrado' }));
@@ -245,6 +254,21 @@ module.exports.emitAdminNotification = emitAdminNotification;
             console.warn('⚠️ Advertencia inicializando modelos:', modelErr.message);
         }
 
+        // 2d. Ejecutar migración de pagos
+        try {
+            const db = require('./config/db');
+            const fs = require('fs');
+            const path = require('path');
+            const migrationPath = path.join(__dirname, 'migrations', '001_create_payments_table.sql');
+            if (fs.existsSync(migrationPath)) {
+                const sql = fs.readFileSync(migrationPath, 'utf8');
+                await db.query(sql);
+                console.log('✅ Migración de pagos ejecutada');
+            }
+        } catch (modelErr) {
+            console.warn('⚠️ Advertencia inicializando modelos:', modelErr.message);
+        }
+
         // 2d. Cargar configuración de geolocalización
         try {
             console.log('Cargando configuración de geolocalización...');
@@ -288,7 +312,32 @@ module.exports.emitAdminNotification = emitAdminNotification;
             console.warn('⚠️ Advertencia iniciando programador de reportes:', reportErr.message);
         }
 
-        // 5b. Analizar reseñas pendientes con IA (transformers.js)
+        // 5b. Iniciar recordatorio automático de pagos
+        try {
+            console.log('💰 Iniciando recordatorio automático de pagos...');
+            const { startPaymentReminderScheduler } = require('./services/paymentScheduler');
+            startPaymentReminderScheduler();
+            console.log('✅ Recordatorio de pagos activo');
+        } catch (paymentErr) {
+            console.warn('⚠️ Advertencia iniciando recordatorio de pagos:', paymentErr.message);
+        }
+
+        // 5b2. Expiracion automática de contratos vencidos
+        try {
+            const ContractModel = require('./models/ContractModel');
+            const expired = await ContractModel.expireOldContracts();
+            if (expired > 0) {
+                console.log(`✅ ${expired} contratos vencidos marcados como expirados`);
+            }
+            const released = await ContractModel.releaseExpiredProperties(7);
+            if (released > 0) {
+                console.log(`✅ ${released} viviendas liberadas después del período de gracia`);
+            }
+        } catch (expErr) {
+            console.warn('⚠️ Advertencia al expirar contratos:', expErr.message);
+        }
+
+        // 5c. Analizar reseñas pendientes con IA (transformers.js)
         try {
             console.log('Verificando reseñas pendientes para análisis con IA...');
             const { analyzePendingReviews } = require('./services/sentimentAnalysis');
