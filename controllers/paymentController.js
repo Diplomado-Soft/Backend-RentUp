@@ -337,6 +337,52 @@ exports.handleWebhook = async (req, res) => {
     res.json({ received: true });
 };
 
+exports.registerManualPayment = async (req, res) => {
+    try {
+        const userId = req.user?.id || req.user?.userId;
+        const { agreement_id, amount, payment_method, paid_at } = req.body;
+
+        const dto = new CreatePaymentDTO({ agreement_id, amount, payment_method });
+        const validation = dto.validate();
+        if (!validation.isValid) {
+            return res.status(400).json({ error: 'Datos inválidos', errors: validation.errors });
+        }
+
+        const contract = await Contract.getById(agreement_id);
+        if (!contract) return res.status(404).json({ error: 'Contrato no encontrado' });
+        if (contract.landlord_id !== userId) return res.status(403).json({ error: 'No eres el arrendador de este contrato' });
+
+        const payment = await Payment.create({
+            agreement_id,
+            tenant_id: contract.tenant_id,
+            landlord_id: userId,
+            amount: amount || contract.monthly_rent,
+            payment_method: payment_method || 'cash',
+            status: 'completed',
+        });
+
+        const created = await Payment.getById(payment.payment_id);
+
+        try {
+            await generateReceiptBuffer(created);
+            await Payment.updateStatus(payment.payment_id, 'completed', {
+                receipt_url: '/payments/receipt/' + payment.payment_id
+            });
+        } catch (pdfErr) {
+            console.error('Error generating receipt for manual payment:', pdfErr.message);
+        }
+
+        res.json({
+            message: 'Pago registrado exitosamente',
+            payment: PaymentDTO.fromDatabase(created)
+        });
+
+    } catch (error) {
+        console.error('Error registering manual payment:', error);
+        res.status(500).json({ error: 'Error al registrar pago manual', message: error.message });
+    }
+};
+
 exports.createPayPalOrder = async (req, res) => {
     try {
         const userId = req.user?.id || req.user?.userId;

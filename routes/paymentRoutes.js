@@ -11,5 +11,6 @@ router.get('/receipt/:payment_id', authMiddleware, paymentController.downloadRec
 router.get('/agreement/:agreement_id', authMiddleware, paymentController.getPaymentsByAgreement);
 router.post('/create-paypal-order', authMiddleware, paymentController.createPayPalOrder);
 router.post('/capture-paypal-order', authMiddleware, paymentController.capturePayPalOrder);
+router.post('/manual', authMiddleware, paymentController.registerManualPayment);
 
 module.exports = router;
