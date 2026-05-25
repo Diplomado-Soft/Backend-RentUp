@@ -1,0 +1,41 @@
+<div style="background-color: #f7f9fb; padding: 40px 20px; font-family: Inter, Arial, sans-serif;">
+    <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
+        <div style="background-color: #059669; padding: 24px 32px; text-align: center;">
+            <h1 style="margin: 0; font-family: Manrope, Arial, sans-serif; font-size: 22px; font-weight: 700; color: #ffffff; letter-spacing: -0.3px;">RentUp</h1>
+        </div>
+        <div style="padding: 32px;">
+            <h2 style="margin: 0 0 8px 0; font-family: Manrope, Arial, sans-serif; font-size: 24px; font-weight: 700; color: #059669;">{{#if isLandlord}}Pago recibido{{else}}Pago confirmado{{/if}}</h2>
+            <p style="margin: 0 0 20px 0; font-size: 15px; color: #4b5563; line-height: 1.6;">Hola {{nombre}} {{apellido}},</p>
+            <p style="margin: 0 0 20px 0; font-size: 15px; color: #4b5563;">{{#if isLandlord}}Tu inquilino ha realizado un pago{{else}}Has realizado un pago exitosamente{{/if}}:</p>
+
+            <div style="background-color: #f0fdf4; border: 1px solid #a7f3d0; border-radius: 10px; padding: 24px; margin: 0 0 24px 0;">
+                <table style="width: 100%; border-collapse: collapse;">
+                    <tr>
+                        <td style="padding: 8px 0; font-size: 13px; color: #6b7280; width: 40%;">Monto</td>
+                        <td style="padding: 8px 0; font-size: 14px; color: #1f2937; font-weight: 600;">${{formatCurrency amount}}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px 0; font-size: 13px; color: #6b7280; border-top: 1px solid #a7f3d0;">Vivienda</td>
+                        <td style="padding: 8px 0; font-size: 14px; color: #1f2937; font-weight: 600; border-top: 1px solid #a7f3d0;">{{direccion}}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px 0; font-size: 13px; color: #6b7280; border-top: 1px solid #a7f3d0;">Recibo N°</td>
+                        <td style="padding: 8px 0; font-size: 14px; color: #1f2937; font-weight: 600; border-top: 1px solid #a7f3d0;">{{paymentId}}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px 0; font-size: 13px; color: #6b7280; border-top: 1px solid #a7f3d0;">Fecha</td>
+                        <td style="padding: 8px 0; font-size: 14px; color: #1f2937; font-weight: 600; border-top: 1px solid #a7f3d0;">{{todayDate}}</td>
+                    </tr>
+                </table>
+            </div>
+
+            {{#if receiptUrl}}
+            <div style="text-align: center; margin: 0 0 24px 0;">
+                <a href="{{receiptUrl}}" style="display: inline-block; background-color: #059669; color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 8px; font-family: Manrope, Arial, sans-serif; font-size: 14px; font-weight: 600;">Descargar Recibo PDF</a>
+            </div>
+            {{/if}}
+
+            {{> _footer}}
+        </div>
+    </div>
+</div>

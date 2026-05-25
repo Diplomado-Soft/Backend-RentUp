@@ -8,6 +8,19 @@ class Contract {
 
             console.log('Creating rental agreement with data:', data);
 
+            const [aptCheck] = await connection.query(
+                'SELECT publication_status FROM apartments WHERE id_apt = ?',
+                [data.id_apt]
+            );
+
+            if (aptCheck.length === 0) {
+                throw new Error('Apartamento no encontrado');
+            }
+
+            if (aptCheck[0].publication_status !== 'approved') {
+                throw new Error('No puedes arrendar un apartamento que no ha sido aprobado por el administrador');
+            }
+
             const [result] = await connection.query(
                 `INSERT INTO rental_agreements 
                     (property_id, tenant_id, landlord_id, start_date, end_date, monthly_rent, status)
@@ -240,15 +253,22 @@ class Contract {
         }
     }
 
-    static async searchTenants(query) {
+    static async searchTenants(query, excludeUserId = null) {
+        const params = [`%${query}%`, `%${query}%`, `%${query}%`];
+        let excludeClause = '';
+        if (excludeUserId) {
+            excludeClause = 'AND u.user_id != ?';
+            params.push(excludeUserId);
+        }
         const [results] = await db.query(
             `SELECT u.user_id, u.user_name, u.user_lastname, u.user_email
             FROM users u
             LEFT JOIN user_rol ur ON u.user_id = ur.user_id
             WHERE (ur.rol_id = 1 OR ur.rol_id IS NULL)
             AND (u.user_email LIKE ? OR u.user_name LIKE ? OR u.user_lastname LIKE ?)
+            ${excludeClause}
             LIMIT 20`,
-            [`%${query}%`, `%${query}%`, `%${query}%`]
+            params
         );
         return results;
     }

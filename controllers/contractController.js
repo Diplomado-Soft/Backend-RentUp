@@ -1,18 +1,7 @@
 const Contract = require('../models/ContractModel');
 const db = require('../config/db');
-const nodemailer = require('nodemailer');
-const { sendContractAgreementEmail } = require('../utils/emailService');
+const { sendContractAgreementEmail, sendContractRenewalEmail } = require('../utils/emailService');
 const { CreateContractDTO, UpdateContractDTO, ContractDTO } = require('../dtos');
-
-const transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 587,
-    secure: false,
-    auth: {
-        user: process.env.GMAIL_USER,
-        pass: process.env.GMAIL_APP_PASSWORD
-    }
-});
 
 exports.createContract = async (req, res) => {
     try {
@@ -31,6 +20,12 @@ exports.createContract = async (req, res) => {
             return res.status(400).json({
                 error: 'Datos de contrato inválidos',
                 errors: validation.errors
+            });
+        }
+
+        if (userId === parseInt(req.body.tenant_id)) {
+            return res.status(400).json({
+                error: 'No puedes arrendar un apartamento a ti mismo'
             });
         }
 
@@ -122,10 +117,11 @@ exports.getAvailableApartments = async (req, res) => {
 exports.searchTenants = async (req, res) => {
     try {
         const { q } = req.query;
+        const userId = req.user?.id || req.user?.userId;
         if (!q || q.length < 2) {
             return res.json([]);
         }
-        const tenants = await Contract.searchTenants(q);
+        const tenants = await Contract.searchTenants(q, userId);
         res.json(tenants);
     } catch (error) {
         console.error('Error buscando inquilinos:', error);
@@ -267,34 +263,25 @@ exports.renewContract = async (req, res) => {
                 [contract.property_id]
             );
 
-            const subject = 'Contrato renovado exitosamente - RentUp';
-            const message = `
-                <div style="font-family: Arial, sans-serif;">
-                    <h2 style="color: #2e5a88;">¡Contrato renovado!</h2>
-                    <p>Tu contrato de arriendo ha sido renovado exitosamente.</p>
-                    <div style="background: #eef3f9; padding: 16px; border-radius: 8px; margin: 16px 0;">
-                        <p><strong>Vivienda:</strong> ${apt[0]?.direccion_apt || 'N/A'}</p>
-                        <p><strong>Nueva fecha de fin:</strong> ${newEnd.toLocaleDateString('es-CO')}</p>
-                        <p><strong>Meses renovados:</strong> ${monthsToAdd}</p>
-                    </div>
-                </div>
-            `;
-
             if (tenant.length > 0) {
-                await transporter.sendMail({
-                    from: `"RentUp" <${process.env.GMAIL_USER}>`,
-                    to: tenant[0].user_email,
-                    subject,
-                    html: message
-                }).catch(e => console.error('Error email renovación tenant:', e.message));
+                sendContractRenewalEmail(
+                    tenant[0].user_email,
+                    tenant[0].user_name,
+                    tenant[0].user_lastname,
+                    apt[0]?.direccion_apt || 'N/A',
+                    newEnd.toLocaleDateString('es-CO'),
+                    monthsToAdd
+                ).catch(e => console.error('Error email renovación tenant:', e.message));
             }
             if (landlord.length > 0) {
-                await transporter.sendMail({
-                    from: `"RentUp" <${process.env.GMAIL_USER}>`,
-                    to: landlord[0].user_email,
-                    subject,
-                    html: message
-                }).catch(e => console.error('Error email renovación landlord:', e.message));
+                sendContractRenewalEmail(
+                    landlord[0].user_email,
+                    landlord[0].user_name,
+                    landlord[0].user_lastname,
+                    apt[0]?.direccion_apt || 'N/A',
+                    newEnd.toLocaleDateString('es-CO'),
+                    monthsToAdd
+                ).catch(e => console.error('Error email renovación landlord:', e.message));
             }
         } catch (emailErr) {
             console.error('Error enviando correo de renovación:', emailErr.message);

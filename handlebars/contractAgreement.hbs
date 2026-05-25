@@ -1,0 +1,36 @@
+<div style="background-color: #f7f9fb; padding: 40px 20px; font-family: Inter, Arial, sans-serif;">
+    <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
+        <div style="background-color: #2e5a88; padding: 24px 32px; text-align: center;">
+            <h1 style="margin: 0; font-family: Manrope, Arial, sans-serif; font-size: 22px; font-weight: 700; color: #ffffff; letter-spacing: -0.3px;">RentUp</h1>
+        </div>
+        <div style="padding: 32px;">
+            <h2 style="margin: 0 0 20px 0; font-family: Manrope, Arial, sans-serif; font-size: 24px; font-weight: 700; color: #2e5a88; text-align: center;">¡Contrato concretado!</h2>
+            <p style="margin: 0 0 20px 0; font-size: 15px; color: #4b5563; line-height: 1.6; text-align: center;">Felicidades {{nombre}} {{apellido}}, has llegado a un acuerdo exitoso.</p>
+
+            <div style="background-color: #f8fafc; border: 1px solid #e5e7eb; border-radius: 10px; padding: 24px; margin: 0 0 20px 0;">
+                <table style="width: 100%; border-collapse: collapse;">
+                    <tr>
+                        <td style="padding: 8px 0; font-size: 13px; color: #6b7280; width: 40%;">Vivienda</td>
+                        <td style="padding: 8px 0; font-size: 14px; color: #1f2937; font-weight: 600;">{{aptName}}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px 0; font-size: 13px; color: #6b7280; border-top: 1px solid #e5e7eb;">Fecha de inicio</td>
+                        <td style="padding: 8px 0; font-size: 14px; color: #1f2937; font-weight: 600; border-top: 1px solid #e5e7eb;">{{startDate}}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px 0; font-size: 13px; color: #6b7280; border-top: 1px solid #e5e7eb;">Fecha de fin</td>
+                        <td style="padding: 8px 0; font-size: 14px; color: #1f2937; font-weight: 600; border-top: 1px solid #e5e7eb;">{{endDate}}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px 0; font-size: 13px; color: #6b7280; border-top: 1px solid #e5e7eb;">Renta mensual</td>
+                        <td style="padding: 8px 0; font-size: 14px; color: #1f2937; font-weight: 600; border-top: 1px solid #e5e7eb;">${{rent}}</td>
+                    </tr>
+                </table>
+            </div>
+
+            <p style="margin: 0 0 4px 0; font-size: 14px; color: #4b5563; line-height: 1.6;">Por favor, asegúrate de cumplir con todas las condiciones acordadas. Si tienes preguntas sobre tu contrato, puedes contactarnos en cualquier momento.</p>
+
+            {{> _footer}}
+        </div>
+    </div>
+</div>

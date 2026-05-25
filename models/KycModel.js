@@ -102,8 +102,7 @@ class KycModel {
                 `SELECT
                     lv.*,
                     u.user_name, u.user_lastname, u.user_email, u.user_phonenumber,
-                    u.is_verified,
-                    a.direccion_apt, a.barrio, a.price, a.publication_status,
+                    a.direccion_apt, a.price, a.publication_status,
                     b.barrio as barrio_nombre
                 FROM landlord_verification lv
                 LEFT JOIN users u ON lv.user_id = u.user_id
@@ -121,7 +120,7 @@ class KycModel {
 
             const formatted = results.map(r => ({
                 ...r,
-                barrio: r.barrio_nombre || r.barrio
+                barrio: r.barrio_nombre
             }));
 
             return {
@@ -150,7 +149,6 @@ class KycModel {
                 `SELECT
                     lv.*,
                     u.user_name, u.user_lastname, u.user_email, u.user_phonenumber,
-                    u.is_verified,
                     a.direccion_apt, a.price, a.publication_status,
                     b.barrio as barrio_nombre,
                     admin.user_name as admin_name
@@ -166,7 +164,7 @@ class KycModel {
             );
 
             const [countResult] = await connection.query(
-                `SELECT COUNT(*) as total FROM landlord_verification ${whereClause}`,
+                `SELECT COUNT(*) as total FROM landlord_verification lv ${whereClause}`,
                 params
             );
 
@@ -223,11 +221,6 @@ class KycModel {
                  SET status = 'approved', reviewed_by = ?, reviewed_at = NOW(), admin_notes = ?
                  WHERE id = ?`,
                 [adminId, notes || 'Verificación aprobada', verificationId]
-            );
-
-            await connection.query(
-                `UPDATE users SET is_verified = TRUE WHERE user_id = ?`,
-                [landlordId]
             );
 
             if (apartmentId) {

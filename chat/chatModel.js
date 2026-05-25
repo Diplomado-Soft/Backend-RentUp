@@ -66,8 +66,15 @@ const ChatModel = {
           WHERE ra.tenant_id = ? AND ra.landlord_id = u.user_id AND ra.status = 'active'
         ) AS propiedades_asociadas
       FROM users u
-      INNER JOIN mensajes m ON (m.emisor_id = u.user_id AND m.receptor_id = ?) OR (m.emisor_id = ? AND m.receptor_id = u.user_id)
-      WHERE u.user_id != ?
+      LEFT JOIN mensajes m ON (m.emisor_id = u.user_id AND m.receptor_id = ?) OR (m.emisor_id = ? AND m.receptor_id = u.user_id)
+      WHERE (
+        m.id IS NOT NULL
+        OR EXISTS (
+          SELECT 1 FROM rental_agreements ra2
+          WHERE ra2.tenant_id = ? AND ra2.landlord_id = u.user_id AND ra2.status = 'active'
+        )
+      )
+      AND u.user_id != ?
       ORDER BY ultimo_mensaje_fecha DESC
     `;
     const [rows] = await db.query(sql, [
@@ -76,6 +83,7 @@ const ChatModel = {
       inquilino_id,
       inquilino_id,
       inquilino_id, inquilino_id,
+      inquilino_id,
       inquilino_id
     ]);
     return rows;
@@ -102,17 +110,32 @@ const ChatModel = {
           WHERE m3.emisor_id = u.user_id
             AND m3.receptor_id = ?
             AND m3.leido = FALSE
-        ) AS mensajes_no_leidos
+        ) AS mensajes_no_leidos,
+        (
+          SELECT GROUP_CONCAT(a.direccion_apt SEPARATOR ' | ')
+          FROM rental_agreements ra
+          JOIN apartments a ON ra.property_id = a.id_apt
+          WHERE ra.landlord_id = ? AND ra.tenant_id = u.user_id AND ra.status = 'active'
+        ) AS propiedades_asociadas
       FROM users u
-      INNER JOIN mensajes m ON (m.emisor_id = u.user_id AND m.receptor_id = ?) OR (m.emisor_id = ? AND m.receptor_id = u.user_id)
-      WHERE u.user_id != ?
+      LEFT JOIN mensajes m ON (m.emisor_id = u.user_id AND m.receptor_id = ?) OR (m.emisor_id = ? AND m.receptor_id = u.user_id)
+      WHERE (
+        m.id IS NOT NULL
+        OR EXISTS (
+          SELECT 1 FROM rental_agreements ra2
+          WHERE ra2.landlord_id = ? AND ra2.tenant_id = u.user_id AND ra2.status = 'active'
+        )
+      )
+      AND u.user_id != ?
       ORDER BY ultimo_mensaje_fecha DESC
     `;
     const [rows] = await db.query(sql, [
       arrendador_id, arrendador_id,
       arrendador_id, arrendador_id,
       arrendador_id,
+      arrendador_id,
       arrendador_id, arrendador_id,
+      arrendador_id,
       arrendador_id
     ]);
     return rows;

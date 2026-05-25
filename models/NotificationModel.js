@@ -153,6 +153,14 @@ class NotificationModel {
         );
         return result.affectedRows;
     }
+
+    static async delete(id, user_id) {
+        const [result] = await db.execute(
+            `DELETE FROM admin_notifications WHERE id = ? AND user_id = ?`,
+            [id, user_id]
+        );
+        return result.affectedRows > 0;
+    }
 }
 
 module.exports = NotificationModel;
