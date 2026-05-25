@@ -9,6 +9,7 @@ const { NotificationDTO, CreateNotificationDTO, UpdateNotificationDTO } = requir
 const { LoginDTO, RefreshTokenDTO, LogoutDTO } = require('./AuthDTO');
 const { KycDTO } = require('./KycDTO');
 const { PaymentDTO, CreatePaymentDTO } = require('./PaymentDTO');
+const { VisitDTO, CreateVisitDTO } = require('./VisitDTO');
 
 module.exports = {
     UserDTO,
@@ -31,5 +32,7 @@ module.exports = {
     LogoutDTO,
     KycDTO,
     PaymentDTO,
-    CreatePaymentDTO
+    CreatePaymentDTO,
+    VisitDTO,
+    CreateVisitDTO
 };

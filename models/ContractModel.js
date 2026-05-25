@@ -399,6 +399,64 @@ class Contract {
         }
     }
 
+    static async sign(agreement_id) {
+        const connection = await db.getConnection();
+        try {
+            await connection.beginTransaction();
+
+            const [contract] = await connection.query(
+                'SELECT * FROM rental_agreements WHERE agreement_id = ?',
+                [agreement_id]
+            );
+
+            if (contract.length === 0) {
+                const err = new Error('Contrato no encontrado');
+                err.statusCode = 404;
+                throw err;
+            }
+
+            if (contract[0].status === 'signed') {
+                const err = new Error('El contrato ya está firmado');
+                err.statusCode = 400;
+                throw err;
+            }
+
+            if (contract[0].status !== 'active') {
+                const err = new Error('Solo se pueden firmar contratos activos');
+                err.statusCode = 400;
+                throw err;
+            }
+
+            await connection.execute(
+                'UPDATE rental_agreements SET status = ?, signed_at = NOW() WHERE agreement_id = ?',
+                ['signed', agreement_id]
+            );
+
+            await connection.commit();
+
+            const [updated] = await connection.query(
+                `SELECT r.*, 
+                        a.direccion_apt, b.barrio,
+                        tenant.user_name AS tenant_name, tenant.user_email AS tenant_email,
+                        landlord.user_name AS landlord_name, landlord.user_email AS landlord_email
+                 FROM rental_agreements r
+                 LEFT JOIN apartments a ON r.property_id = a.id_apt
+                 LEFT JOIN barrio b ON a.id_barrio = b.id_barrio
+                 LEFT JOIN users tenant ON r.tenant_id = tenant.user_id
+                 LEFT JOIN users landlord ON r.landlord_id = landlord.user_id
+                 WHERE r.agreement_id = ?`,
+                [agreement_id]
+            );
+
+            return updated[0];
+        } catch (error) {
+            await connection.rollback();
+            throw error;
+        } finally {
+            connection.release();
+        }
+    }
+
     static async expireOldContracts() {
         const connection = await db.getConnection();
         try {

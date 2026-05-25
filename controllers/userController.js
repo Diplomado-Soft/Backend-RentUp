@@ -5,7 +5,6 @@ const { generateToken } = require('../utils/auth');
 const { sendWelcomeEmail, sendUserBlockEmail, sendEmailAccountDelete } = require('../utils/emailService');
 const { CreateUserDTO, UpdateUserDTO, UserDTO } = require('../dtos');
 const db = require('../config/db');
-const { use } = require('react');
 require('dotenv').config();
 
 exports.getUserData = async (req, res) => {

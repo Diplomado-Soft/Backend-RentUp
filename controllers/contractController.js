@@ -348,6 +348,275 @@ exports.endAndMakeAvailable = async (req, res) => {
     }
 };
 
+exports.getContractPdf = async (req, res) => {
+    try {
+        const { agreement_id } = req.params;
+        const Contract = require('../models/ContractModel');
+        const contract = await Contract.getById(agreement_id);
+
+        if (!contract) {
+            return res.status(404).json({ error: 'Contrato no encontrado' });
+        }
+
+        const PDFDocument = require('pdfkit');
+        const doc = new PDFDocument({ size: 'A4', margin: 60, layout: 'portrait' });
+
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `inline; filename="contrato-${agreement_id}.pdf"`);
+
+        doc.pipe(res);
+
+        const ML = 60, MR = 60;
+        const pageW = 595.28;
+        const contentW = pageW - ML - MR;
+
+        // ── Watermark / Header line ──
+        doc.rect(ML, 40, contentW, 2).fill('#6A6BEF');
+        doc.fillColor('#000');
+
+        // ── Title ──
+        doc.moveDown(3);
+        doc.fontSize(20).font('Helvetica-Bold').fillColor('#1a1a2e')
+            .text('CONTRATO DE ARRENDAMIENTO', ML, doc.y, { align: 'center', width: contentW });
+        doc.fontSize(10).font('Helvetica').fillColor('#6A6BEF')
+            .text('RentUp — Plataforma Inmobiliaria', { align: 'center', width: contentW });
+        doc.fillColor('#000');
+        doc.moveDown(1.5);
+
+        // ── Info block ──
+        const infoBoxY = doc.y;
+        doc.roundedRect(ML, infoBoxY, contentW, 8, 4).fill('#f4f4f9');
+        doc.fillColor('#000');
+
+        const col1X = ML + 15;
+        const col2X = ML + contentW / 2 + 5;
+        const rowH = 16;
+        let rowY = infoBoxY + 10;
+
+        const field = (x, y, label, value) => {
+            doc.fontSize(7.5).font('Helvetica-Bold').fillColor('#6A6BEF')
+                .text(label.toUpperCase(), x, y, { width: contentW / 2 - 25, lineBreak: false });
+            doc.fontSize(9).font('Helvetica').fillColor('#1a1a2e')
+                .text(value || '—', x, y + 10, { width: contentW / 2 - 25 });
+        };
+
+        const fields = [
+            [
+                { label: 'No. Contrato', value: `RA-${String(contract.agreement_id).padStart(4, '0')}` },
+                { label: 'Estado', value: contract.status === 'signed' ? 'FIRMADO' : (contract.status || 'Pendiente') }
+            ],
+            [
+                { label: 'Inquilino', value: contract.tenant_name || '—' },
+                { label: 'Arrendador', value: contract.landlord_name || '—' }
+            ],
+            [
+                { label: 'Dirección', value: contract.direccion_apt || '—' },
+                { label: 'Barrio', value: contract.barrio || '—' }
+            ],
+            [
+                { label: 'Fecha Inicio', value: contract.start_date ? new Date(contract.start_date).toLocaleDateString('es-CO') : '—' },
+                { label: 'Fecha Fin', value: contract.end_date ? new Date(contract.end_date).toLocaleDateString('es-CO') : '—' }
+            ],
+            [
+                { label: 'Canon Mensual', value: contract.monthly_rent
+                    ? `$${Number(contract.monthly_rent).toLocaleString('es-CO')}`
+                    : '—' },
+                { label: 'Creado', value: contract.created_at ? new Date(contract.created_at).toLocaleDateString('es-CO') : '—' }
+            ]
+        ];
+
+        if (contract.signed_at) {
+            fields.push([
+                { label: 'Firmado', value: new Date(contract.signed_at).toLocaleString('es-CO') },
+                { label: '', value: '' }
+            ]);
+        }
+
+        fields.forEach(pair => {
+            field(col1X, rowY, pair[0].label, pair[0].value);
+            field(col2X, rowY, pair[1].label, pair[1].value);
+            rowY += rowH + 4;
+        });
+
+        doc.fillColor('#000');
+        const boxBottom = rowY + 6;
+        doc.roundedRect(ML, infoBoxY, contentW, boxBottom - infoBoxY, 4).stroke('#e0e0e8');
+
+        // ── Cláusulas ──
+        const termsStartY = boxBottom + 25;
+        doc.y = termsStartY;
+        doc.moveDown(0.5);
+        doc.fontSize(12).font('Helvetica-Bold').fillColor('#1a1a2e')
+            .text('CLÁUSULAS', { align: 'center', width: contentW });
+        doc.moveDown(0.3);
+        doc.fontSize(8).fillColor('#6A6BEF')
+            .text('—'.repeat(60), { align: 'center', width: contentW });
+        doc.fillColor('#000');
+        doc.moveDown(0.8);
+
+        const clauses = [
+            {
+                title: 'PRIMERA — OBJETO DEL CONTRATO',
+                text: 'El Arrendador entrega en arriendo al Arrendatario el inmueble identificado en la cláusula de información general, para ser destinado exclusivamente como vivienda urbana. El Arrendatario declara conocer el inmueble y recibirlo en buen estado de conservación e higiene.'
+            },
+            {
+                title: 'SEGUNDA — PLAZO Y VIGENCIA',
+                text: 'El término de duración del presente contrato será el estipulado en las fechas de inicio y fin indicadas en la información general. El contrato se renovará automáticamente por períodos iguales si ninguna de las partes manifiesta su voluntad de no renovar con al menos 30 días de antelación a la fecha de terminación.'
+            },
+            {
+                title: 'TERCERA — CANON DE ARRENDAMIENTO',
+                text: `El Arrendatario se obliga a pagar al Arrendador la suma mensual de $${Number(contract.monthly_rent).toLocaleString('es-CO')} COP, dentro de los primeros cinco (5) días de cada mes, en la cuenta bancaria que el Arrendador indique por escrito.`
+            },
+            {
+                title: 'CUARTA — OBLIGACIONES DEL ARRENDATARIO',
+                text: 'El Arrendatario se obliga a: (a) Pagar puntualmente el canon; (b) Usar el inmueble debidamente; (c) No subarrendar ni ceder el contrato sin autorización escrita; (d) Permitir visitas de inspección previa coordinación; (e) Responder por daños causados por sí o por sus acompañantes.'
+            },
+            {
+                title: 'QUINTA — OBLIGACIONES DEL ARRENDADOR',
+                text: 'El Arrendador se obliga a: (a) Entregar el inmueble en condiciones óptimas de habitabilidad; (b) Realizar las reparaciones estructurales necesarias; (c) Garantizar el uso pacífico del inmueble; (d) Restituir el depósito de garantía al finalizar el contrato, si no hay daños.'
+            },
+            {
+                title: 'SEXTA — VALIDEZ DE LA FIRMA DIGITAL',
+                text: 'Las partes aceptan que la firma digital del presente contrato, realizada a través de la plataforma RentUp, tiene plena validez legal de conformidad con la Ley 527 de 1999 y las disposiciones del Código de Comercio colombiano.'
+            },
+            {
+                title: 'SÉPTIMA — TERMINACIÓN ANTICIPADA',
+                text: 'Cualquiera de las partes puede dar por terminado el contrato de forma anticipada, dando un preaviso mínimo de 30 días calendario por escrito. En caso de terminación anticipada por parte del Arrendatario, deberá pagar una penalidad equivalente a un (1) mes de canon.'
+            }
+        ];
+
+        clauses.forEach(clause => {
+            if (doc.y > 650) {
+                doc.addPage();
+            }
+            doc.fontSize(9).font('Helvetica-Bold').fillColor('#1a1a2e')
+                .text(clause.title, { continued: false });
+            doc.fontSize(8.5).font('Helvetica').fillColor('#333')
+                .text(clause.text, { align: 'justify', lineGap: 2 });
+            doc.moveDown(0.7);
+            doc.fillColor('#000');
+        });
+
+        // ── Signature section ──
+        if (doc.y > 620) doc.addPage();
+        doc.moveDown(2);
+        doc.fontSize(8).fillColor('#6A6BEF')
+            .text('—'.repeat(60), { align: 'center', width: contentW });
+        doc.fillColor('#000');
+        doc.moveDown(1);
+
+        const fmtFullDate = (d) => {
+            const days = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+            const months = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+            const date = new Date(d);
+            return `${days[date.getDay()]}, ${date.getDate()} de ${months[date.getMonth()]} de ${date.getFullYear()}`;
+        };
+
+        doc.fontSize(9).font('Helvetica').fillColor('#333')
+            .text(`En Mocoa, Putumayo, a ${fmtFullDate(new Date())}.`, { align: 'center', width: contentW });
+        doc.moveDown(2.5);
+
+        const sigY = doc.y;
+        const sigW = 180;
+        const sigGap = 40;
+        const sigLeft = ML;
+        const sigRight = pageW - MR - sigW;
+
+        doc.moveTo(sigLeft, sigY).lineTo(sigLeft + sigW, sigY).stroke('#999');
+        doc.moveTo(sigRight, sigY).lineTo(sigRight + sigW, sigY).stroke('#999');
+
+        doc.fontSize(9).font('Helvetica-Bold').fillColor('#1a1a2e');
+        doc.text(contract.landlord_name || 'ARRENDADOR', sigLeft, sigY + 6, { width: sigW, align: 'center' });
+        doc.fontSize(7.5).font('Helvetica').fillColor('#888')
+            .text('Firma Arrendador', sigLeft, sigY + 20, { width: sigW, align: 'center' });
+
+        doc.fontSize(9).font('Helvetica-Bold').fillColor('#1a1a2e');
+        doc.text(contract.tenant_name || 'ARRENDATARIO', sigRight, sigY + 6, { width: sigW, align: 'center' });
+        doc.fontSize(7.5).font('Helvetica').fillColor('#888')
+            .text('Firma Arrendatario', sigRight, sigY + 20, { width: sigW, align: 'center' });
+
+        doc.fillColor('#000');
+
+        if (contract.status === 'signed') {
+            doc.moveDown(5);
+            doc.fontSize(8.5).fillColor('#2e7d32');
+            doc.text(
+                `✓ Este contrato fue firmado digitalmente el ${new Date(contract.signed_at).toLocaleString('es-CO')} a través de RentUp.`,
+                { align: 'center', width: contentW }
+            );
+            doc.fillColor('#000');
+        }
+
+        // ── Footer ──
+        const footerY = pageW * 1.414 - 45;
+        doc.fontSize(6.5).fillColor('#aaa')
+            .text(`Documento generado electrónicamente por RentUp • RA-${String(contract.agreement_id).padStart(4, '0')} • Página`, ML, footerY, { width: contentW, align: 'center' });
+
+        doc.end();
+    } catch (error) {
+        console.error('Error generando PDF:', error);
+        res.status(500).json({ error: 'Error al generar el PDF' });
+    }
+};
+
+exports.signContract = async (req, res) => {
+    try {
+        const { agreement_id } = req.params;
+
+        const contract = await Contract.sign(parseInt(agreement_id, 10));
+
+        // ─────────────────────────────────────────────────────────
+        // Simulación de envío de notificación por correo a ambas partes
+        // Descomentar y configurar cuando se tengan las credenciales SMTP
+        //
+        // try {
+        //     const mailOptionsTenant = {
+        //         from: `"RentUp" <${process.env.GMAIL_USER}>`,
+        //         to: contract.tenant_email,
+        //         subject: 'Contrato firmado exitosamente - RentUp',
+        //         html: `
+        //             <div style="font-family: Arial, sans-serif;">
+        //                 <h2 style="color: #2e5a88;">¡Contrato firmado!</h2>
+        //                 <p>El contrato de arriendo para <strong>${contract.direccion_apt}</strong>
+        //                    ha sido firmado digitalmente.</p>
+        //                 <p>Fecha de firma: ${new Date(contract.signed_at).toLocaleString('es-CO')}</p>
+        //             </div>
+        //         `
+        //     };
+        //     await transporter.sendMail(mailOptionsTenant);
+        //
+        //     const mailOptionsLandlord = {
+        //         from: `"RentUp" <${process.env.GMAIL_USER}>`,
+        //         to: contract.landlord_email,
+        //         subject: 'Contrato firmado exitosamente - RentUp',
+        //         html: `
+        //             <div style="font-family: Arial, sans-serif;">
+        //                 <h2 style="color: #2e5a88;">¡Contrato firmado!</h2>
+        //                 <p>El contrato de arriendo para <strong>${contract.direccion_apt}</strong>
+        //                    ha sido firmado digitalmente por el inquilino.</p>
+        //                 <p>Fecha de firma: ${new Date(contract.signed_at).toLocaleString('es-CO')}</p>
+        //             </div>
+        //         `
+        //     };
+        //     await transporter.sendMail(mailOptionsLandlord);
+        // } catch (emailErr) {
+        //     console.error('Error enviando notificación de firma:', emailErr.message);
+        // }
+        // ─────────────────────────────────────────────────────────
+
+        res.json({
+            message: 'Contrato firmado exitosamente',
+            contract: ContractDTO.fromDatabase(contract)
+        });
+    } catch (error) {
+        if (error.statusCode) {
+            return res.status(error.statusCode).json({ error: error.message });
+        }
+        console.error('Error firmando contrato:', error);
+        res.status(500).json({ error: 'Error al firmar el contrato', message: error.message });
+    }
+};
+
 exports.expireOldContracts = async (req, res) => {
     try {
         const expiredCount = await Contract.expireOldContracts();
