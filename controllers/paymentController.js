@@ -13,7 +13,8 @@ const stripe = process.env.STRIPE_SECRET_KEY
 exports.createPaymentIntent = async (req, res) => {
     try {
         const userId = req.user?.id || req.user?.userId;
-        const { agreement_id, amount, payment_method } = req.body;
+        const { agreement_id, amount } = req.body;
+        let payment_method = req.body.payment_method || 'card';
 
         const dto = new CreatePaymentDTO({ agreement_id, amount, payment_method });
         const validation = dto.validate();
@@ -29,9 +30,22 @@ exports.createPaymentIntent = async (req, res) => {
             return res.status(403).json({ error: 'No eres el inquilino de este contrato' });
         }
 
-        if (payment_method === 'card' && stripe && Number(amount) >= 2000) {
+        const completedPayments = await Payment.getCompletedCountByAgreement(agreement_id);
+        const isFirstPayment = completedPayments === 0;
+        const depositAmount = Number(contract.deposit_amount || 0);
+        let effectiveAmount = Number(contract.monthly_rent);
+        if (isFirstPayment && depositAmount > 0) {
+            effectiveAmount = Math.max(0, effectiveAmount - depositAmount);
+        }
+
+        if (Number(effectiveAmount) < 3500) {
+            payment_method = 'other';
+        }
+
+        if (payment_method === 'card' && stripe && Number(effectiveAmount) >= 3500) {
+            const stripeAmount = Math.round(Number(effectiveAmount) * 100);
             const paymentIntent = await stripe.paymentIntents.create({
-                amount: Math.round(Number(amount)),
+                amount: stripeAmount,
                 currency: 'cop',
                 metadata: { agreement_id: String(agreement_id), tenant_id: String(userId) }
             });
@@ -40,7 +54,7 @@ exports.createPaymentIntent = async (req, res) => {
                 agreement_id,
                 tenant_id: userId,
                 landlord_id: contract.landlord_id,
-                amount,
+                amount: effectiveAmount,
                 payment_method: 'card',
                 status: 'pending',
                 stripe_payment_intent_id: paymentIntent.id
@@ -57,7 +71,7 @@ exports.createPaymentIntent = async (req, res) => {
             agreement_id,
             tenant_id: userId,
             landlord_id: contract.landlord_id,
-            amount,
+            amount: effectiveAmount,
             payment_method,
             status: 'pending'
         });
@@ -96,11 +110,13 @@ exports.confirmPayment = async (req, res) => {
         const updated = await Payment.getById(payment_id);
 
         try {
-            await generateReceiptBuffer(updated);
-            await Payment.updateStatus(payment_id, 'completed', { ...updates, receipt_url: '/payments/receipt/' + payment_id });
-            updated.receipt_url = '/payments/receipt/' + payment_id;
+            const pdfBuffer = await generateReceiptBuffer(updated);
+            const idrive = require('../utils/idriveService');
+            const receiptKey = await idrive.uploadReceipt(pdfBuffer, payment_id);
+            await Payment.updateStatus(payment_id, 'completed', { ...updates, receipt_url: receiptKey });
+            updated.receipt_url = receiptKey;
         } catch (pdfErr) {
-            console.error('Error generating receipt PDF:', pdfErr.message);
+            console.error('Error generating/uploading receipt PDF:', pdfErr.message);
         }
 
         try {
@@ -108,6 +124,13 @@ exports.confirmPayment = async (req, res) => {
             const [landlord] = await db.query('SELECT user_name, user_lastname, user_email FROM users WHERE user_id = ?', [payment.landlord_id]);
             const contract = await Contract.getById(payment.agreement_id);
             const [apt] = await db.query('SELECT direccion_apt FROM apartments WHERE id_apt = ?', [contract?.property_id]);
+
+            let receiptLink = '';
+            if (updated.receipt_url && !updated.receipt_url.startsWith('/payments/')) {
+                const idrive = require('../utils/idriveService');
+                const signed = await idrive.getSignedPdfUrl(updated.receipt_url);
+                receiptLink = signed?.signedUrl || '';
+            }
 
             if (tenant.length > 0) {
                 sendPaymentConfirmationEmail(
@@ -117,7 +140,7 @@ exports.confirmPayment = async (req, res) => {
                     updated.amount,
                     apt[0]?.direccion_apt || 'Vivienda',
                     updated.payment_id,
-                    updated.receipt_url
+                    receiptLink
                 ).catch(e => console.error('Error sending confirmation email:', e.message));
             }
             if (landlord.length > 0) {
@@ -128,7 +151,7 @@ exports.confirmPayment = async (req, res) => {
                     updated.amount,
                     apt[0]?.direccion_apt || 'Vivienda',
                     updated.payment_id,
-                    updated.receipt_url,
+                    receiptLink,
                     true
                 ).catch(e => console.error('Error sending confirmation to landlord:', e.message));
             }
@@ -191,8 +214,15 @@ exports.downloadReceipt = async (req, res) => {
             return res.status(403).json({ error: 'No autorizado' });
         }
 
-        const pdfBuffer = await generateReceiptBuffer(payment);
+        if (payment.receipt_url && !payment.receipt_url.startsWith('/payments/')) {
+            const idrive = require('../utils/idriveService');
+            const result = await idrive.getSignedPdfUrl(payment.receipt_url);
+            if (result) {
+                return res.json({ url: result.signedUrl, expiresAt: result.expiresAt });
+            }
+        }
 
+        const pdfBuffer = await generateReceiptBuffer(payment);
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', `attachment; filename=recibo_pago_${payment_id}.pdf`);
         res.setHeader('Content-Security-Policy', "default-src 'self'");
@@ -340,21 +370,29 @@ exports.handleWebhook = async (req, res) => {
 exports.createPayPalOrder = async (req, res) => {
     try {
         const userId = req.user?.id || req.user?.userId;
-        const { agreement_id, amount } = req.body;
-
-        const order = await createPayPalOrder(amount);
-        if (!order) {
-            return res.status(400).json({ error: 'PayPal no configurado. Usa modo simulado.' });
-        }
+        const { agreement_id } = req.body;
 
         const contract = await Contract.getById(agreement_id);
         if (!contract) return res.status(404).json({ error: 'Contrato no encontrado' });
+
+        const completedPayments = await Payment.getCompletedCountByAgreement(agreement_id);
+        const isFirstPayment = completedPayments === 0;
+        const depositAmount = Number(contract.deposit_amount || 0);
+        let effectiveAmount = Number(contract.monthly_rent);
+        if (isFirstPayment && depositAmount > 0) {
+            effectiveAmount = Math.max(0, effectiveAmount - depositAmount);
+        }
+
+        const order = await createPayPalOrder(effectiveAmount);
+        if (!order) {
+            return res.status(400).json({ error: 'PayPal no configurado. Usa modo simulado.' });
+        }
 
         const payment = await Payment.create({
             agreement_id,
             tenant_id: userId,
             landlord_id: contract.landlord_id,
-            amount,
+            amount: effectiveAmount,
             payment_method: 'paypal',
             status: 'pending',
             paypal_order_id: order.id

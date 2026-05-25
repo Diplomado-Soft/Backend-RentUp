@@ -333,6 +333,10 @@ module.exports.emitAdminNotification = emitAdminNotification;
             if (released > 0) {
                 console.log(`✅ ${released} viviendas liberadas después del período de gracia`);
             }
+            const unsigned = await ContractModel.cancelUnsignedContracts();
+            if (unsigned > 0) {
+                console.log(`✅ ${unsigned} contratos cancelados por falta de firmas (7 días sin ambas firmas)`);
+            }
         } catch (expErr) {
             console.warn('⚠️ Advertencia al expirar contratos:', expErr.message);
         }

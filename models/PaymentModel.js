@@ -76,6 +76,14 @@ class Payment {
         return results;
     }
 
+    static async getCompletedCountByAgreement(agreementId) {
+        const [results] = await db.query(
+            "SELECT COUNT(*) as count FROM payments WHERE agreement_id = ? AND status = 'completed'",
+            [agreementId]
+        );
+        return results[0].count;
+    }
+
     static async getByAgreement(agreementId) {
         const [results] = await db.query(
             `SELECT p.*, 

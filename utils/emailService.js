@@ -310,6 +310,67 @@ const sendContractExpirationEmail = async (email, nombre, apellido, direccion, b
     }
 };
 
+const sendContractSignedEmail = async (email, nombre, apellido, aptDireccion, agreementId, isLandlord = false) => {
+    try {
+        const role = isLandlord ? 'arrendador' : 'inquilino';
+        const subject = isLandlord
+            ? 'Tu inquilino ha firmado el contrato - RentUp'
+            : 'Tu arrendador ha firmado el contrato - RentUp';
+
+        const html = `
+            <!DOCTYPE html>
+            <html>
+            <head><meta charset="utf-8"></head>
+            <body style="font-family: Arial, sans-serif; background: #f4f4f5; padding: 20px;">
+                <div style="max-width: 600px; margin: 0 auto; background: #fff; border-radius: 12px; overflow: hidden;">
+                    <div style="background: #1e40af; padding: 30px; text-align: center;">
+                        <h1 style="color: #fff; margin: 0; font-size: 24px;">RentUp</h1>
+                        <p style="color: #d0d1ff; margin: 5px 0 0;">Contrato Firmado</p>
+                    </div>
+                    <div style="padding: 30px;">
+                        <h2 style="color: #1e40af; margin: 0 0 10px;">¡Contrato firmado exitosamente!</h2>
+                        <p style="color: #374151; margin: 0 0 15px;">Hola <strong>${nombre} ${apellido}</strong>,</p>
+                        <p style="color: #374151; margin: 0 0 15px;">
+                            El ${role} ha firmado el contrato de arrendamiento de la propiedad ubicada en <strong>${aptDireccion}</strong>.
+                        </p>
+                        <p style="color: #374151; margin: 0 0 15px;">
+                            Cuando ambas partes hayan firmado, recibirás una copia del contrato firmado.
+                        </p>
+                        <div style="text-align: center; margin: 25px 0;">
+                            <a href="${FRONTEND_URL}/dashboard?tab=documentos"
+                               style="background: #1e40af; color: #fff; text-decoration: none; padding: 12px 30px; border-radius: 8px; display: inline-block;">
+                                Ver contrato
+                            </a>
+                        </div>
+                        <p style="color: #6b7280; font-size: 12px; text-align: center; margin-top: 20px;">
+                            RentUp - Plataforma de gestión de arriendos
+                        </p>
+                    </div>
+                </div>
+            </body>
+            </html>
+        `;
+
+        const { data, error } = await resend.emails.send({
+            from: FROM_EMAIL,
+            to: email,
+            subject,
+            html
+        });
+
+        if (error) {
+            console.error('Error enviando correo de firma:', error.message);
+            return { success: false, error };
+        }
+
+        console.log('Correo de firma enviado:', data?.id);
+        return { success: true, info: data };
+    } catch (error) {
+        console.error('Error enviando correo de firma:', error.message);
+        return { success: false, error };
+    }
+};
+
 const sendContractRenewalEmail = async (email, nombre, apellido, aptDireccion, newEndDate, monthsToAdd) => {
     try {
         const html = await renderTemplate('contractRenewal', { nombre, apellido, aptDireccion, newEndDate, monthsToAdd });
@@ -334,6 +395,30 @@ const sendContractRenewalEmail = async (email, nombre, apellido, aptDireccion, n
     }
 };
 
+const sendContractCancelledEmail = async (email, nombre, apellido, direccion, barrio) => {
+    try {
+        const html = await renderTemplate('contractCancellation', { nombre, apellido, direccion, barrio, frontendUrl: FRONTEND_URL });
+
+        const { data, error } = await resend.emails.send({
+            from: FROM_EMAIL,
+            to: email,
+            subject: 'Contrato cancelado por falta de firmas - RentUp',
+            html
+        });
+
+        if (error) {
+            console.error('Error enviando correo de cancelacion:', error.message);
+            return { success: false, error };
+        }
+
+        console.log('Correo de cancelacion enviado:', data?.id);
+        return { success: true, info: data };
+    } catch (error) {
+        console.error('Error enviando correo de cancelacion:', error.message);
+        return { success: false, error };
+    }
+};
+
 module.exports = {
     sendWelcomeEmail,
     sendContractAgreementEmail,
@@ -346,5 +431,7 @@ module.exports = {
     sendPaymentConfirmationEmail,
     sendPaymentReminderEmail,
     sendContractExpirationEmail,
-    sendContractRenewalEmail
+    sendContractRenewalEmail,
+    sendContractSignedEmail,
+    sendContractCancelledEmail
 };

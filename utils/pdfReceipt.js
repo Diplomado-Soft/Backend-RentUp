@@ -1,42 +1,58 @@
 const PDFDocument = require('pdfkit');
+const path = require('path');
+const fs = require('fs');
+
+const BRAND_NAVY = '#2E5A88';
+const LOGO_PATH = path.join(__dirname, '..', '..', 'frontend-RentUp', 'public', 'Preview-nobg.png');
 
 function generateReceiptBuffer(payment) {
     return new Promise((resolve, reject) => {
         try {
-            const doc = new PDFDocument({ margin: 40, size: 'A4' });
+            const doc = new PDFDocument({ margin: 35, size: 'A4' });
             const chunks = [];
 
             doc.on('data', chunk => chunks.push(chunk));
             doc.on('end', () => resolve(Buffer.concat(chunks)));
             doc.on('error', reject);
 
-            doc.rect(0, 0, doc.page.width, 110).fill('#1e40af');
+            const pw = doc.page.width;
 
-            doc.fontSize(28).font('Helvetica-Bold').fillColor('#ffffff')
-                .text('RentUp', 50, 25);
-            doc.fontSize(10).font('Helvetica').fillColor('#d0d1ff')
-                .text('Comprobante de pago', 50, 65);
+            doc.rect(0, 0, pw, 75).fill('#ffffff');
+            doc.rect(0, 73, pw, 2).fill('#e5dfd2');
 
-            const now = new Date();
-            doc.fontSize(9).font('Helvetica').fillColor('#ffffff')
-                .text(`Fecha: ${now.toLocaleDateString('es-CO')}`, 50, 25, { align: 'right' })
-                .text(`Recibo N°: ${payment.payment_id}`, 50, 38, { align: 'right' });
+            try {
+                doc.image(LOGO_PATH, 35, 12, { height: 50 });
+            } catch {
+                doc.fontSize(16).font('Helvetica-Bold').fillColor(BRAND_NAVY)
+                    .text('RentUp', 35, 22);
+            }
 
-            doc.y = 140;
+            doc.fontSize(7.5).font('Helvetica').fillColor('#536379')
+                .text(`Recibo N° ${payment.payment_id}`, 35, 12, { align: 'right' })
+                .text(new Date().toLocaleDateString('es-CO'), 35, 23, { align: 'right' });
 
-            doc.fillColor('#1e40af').fontSize(22).font('Helvetica-Bold')
-                .text('RECIBO DE PAGO', { align: 'center' }).moveDown(1);
+            doc.save();
+            doc.fontSize(6.5).font('Helvetica-Bold').fillColor('#c4633a')
+                .text('MODO DE PRUEBA — Sin validez legal', 35, 62);
+            doc.restore();
 
-            doc.fillColor('#000000').fontSize(11).font('Helvetica');
+            let y = 88;
 
-            const lineHeight = 20;
-            let y = doc.y;
+            doc.fontSize(14).font('Helvetica-Bold').fillColor(BRAND_NAVY)
+                .text('RECIBO DE PAGO', 35, y, { align: 'center' });
+            y = doc.y + 5;
+            doc.y = y;
 
+            doc.moveTo(35, y).lineTo(pw - 35, y).strokeColor('#d1d5db').stroke();
+            y += 5;
+            doc.y = y;
+
+            const lineHeight = 18;
             const drawField = (label, value) => {
-                doc.font('Helvetica-Bold').fontSize(10).fillColor('#374151')
-                    .text(label, 50, y, { width: 150, continued: true });
-                doc.font('Helvetica').fontSize(10).fillColor('#111827')
-                    .text(`: ${value || '-'}`, { width: 350 });
+                doc.font('Helvetica-Bold').fontSize(8.5).fillColor('#374151')
+                    .text(label, 35, y, { width: 115 });
+                doc.font('Helvetica').fontSize(8.5).fillColor('#111827')
+                    .text(`: ${value || '-'}`, 150, y, { width: 380 });
                 y += lineHeight;
                 doc.y = y;
             };
@@ -52,25 +68,30 @@ function generateReceiptBuffer(payment) {
                 year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit'
             }) : '-');
 
-            y += 10;
+            y += 5;
+            doc.y = y;
+            doc.moveTo(35, y).lineTo(pw - 35, y).strokeColor('#d1d5db').stroke();
+            y += 8;
             doc.y = y;
 
-            doc.moveTo(50, doc.y).lineTo(doc.page.width - 50, doc.y).strokeColor('#d1d5db').stroke();
-            doc.moveDown(1.5);
+            doc.font('Helvetica-Bold').fontSize(14).fillColor(BRAND_NAVY)
+                .text(`Total pagado: $${Number(payment.amount).toLocaleString('es-CO')} COP`, 35, y, { align: 'center' });
+            y = doc.y + 10;
+            doc.y = y;
 
-            doc.font('Helvetica-Bold').fontSize(14).fillColor('#1e40af')
-                .text(`Total pagado: $${Number(payment.amount).toLocaleString('es-CO')}`, { align: 'center' });
-            doc.moveDown(0.5);
+            if (payment.status === 'completed') {
+                doc.font('Helvetica-Bold').fontSize(10).fillColor('#059669')
+                    .text('✓ PAGO CONFIRMADO', 35, y, { align: 'center' });
+            }
 
-            const statusColor = payment.status === 'completed' ? '#059669' : '#d97706';
-            doc.font('Helvetica-Bold').fontSize(11).fillColor(statusColor)
-                .text(payment.status === 'completed' ? '✓ PAGO CONFIRMADO' : '⏳ PENDIENTE', { align: 'center' });
+            y = doc.page.height - 50;
+            doc.y = y;
+            doc.moveTo(35, y).lineTo(pw - 35, y).strokeColor('#d1d5db').stroke();
+            y += 4;
+            doc.y = y;
 
-            doc.moveDown(3);
-
-            doc.fontSize(8).fillColor('#9ca3af').font('Helvetica')
-                .text('Este recibo fue generado automáticamente por RentUp.', { align: 'center' })
-                .text('Plataforma de gestión de arriendos — Uniputumayo.', { align: 'center' });
+            doc.fontSize(7).fillColor('#9ca3af').font('Helvetica')
+                .text('Este recibo fue generado automáticamente por RentUp — Plataforma de gestión de arriendos, Uniputumayo.', 35, y, { align: 'center' });
 
             doc.end();
 

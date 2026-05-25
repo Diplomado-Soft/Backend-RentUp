@@ -15,11 +15,28 @@ class ContractDTO {
         this.status = contract.status;
         this.created_at = contract.created_at;
         this.tenant_name = contract.tenant_name || null;
+        this.tenant_lastname = contract.tenant_lastname || null;
         this.landlord_name = contract.landlord_name || null;
+        this.landlord_lastname = contract.landlord_lastname || null;
         this.property_address = contract.property_address || contract.direccion_apt || null;
         this.barrio = contract.barrio || contract.barrio_name || null;
         this.direccion_apt = contract.direccion_apt || null;
         this.images = contract.images || [];
+        this.signature_status = this._getSignatureStatus(contract);
+        this.tenant_signed_at = contract.tenant_signed_at || null;
+        this.landlord_signed_at = contract.landlord_signed_at || null;
+        this.signed_pdf_key = contract.signed_pdf_key || null;
+        this.tenant_signature_key = contract.tenant_signature_key || null;
+        this.landlord_signature_key = contract.landlord_signature_key || null;
+    }
+
+    _getSignatureStatus(contract) {
+        const tenantSigned = !!(contract.tenant_signature_key || contract.tenant_signature);
+        const landlordSigned = !!(contract.landlord_signature_key || contract.landlord_signature);
+        if (tenantSigned && landlordSigned) return 'fully_signed';
+        if (tenantSigned) return 'signed_by_tenant';
+        if (landlordSigned) return 'signed_by_landlord';
+        return 'pending';
     }
 
     static fromDatabase(contract) {
@@ -74,8 +91,17 @@ class CreateContractDTO {
             errors.push('monthly_rent debe ser un número mayor a 0');
         }
 
-        if (this.start_date && this.end_date && new Date(this.end_date) <= new Date(this.start_date)) {
-            errors.push('end_date debe ser posterior a start_date');
+        if (this.start_date && this.end_date) {
+            const start = new Date(this.start_date);
+            const end = new Date(this.end_date);
+            const diffDays = Math.round((end - start) / (1000 * 60 * 60 * 24));
+            if (end <= start) {
+                errors.push('end_date debe ser posterior a start_date');
+            } else if (diffDays < 30) {
+                errors.push('La duración mínima del contrato es de 30 días');
+            } else if (diffDays % 30 !== 0) {
+                errors.push('La duración del contrato debe ser en múltiplos de 30 días (30, 60, 90, 120...)');
+            }
         }
 
         return {
