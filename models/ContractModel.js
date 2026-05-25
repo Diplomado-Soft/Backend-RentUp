@@ -23,15 +23,16 @@ class Contract {
 
             const [result] = await connection.query(
                 `INSERT INTO rental_agreements 
-                    (property_id, tenant_id, landlord_id, start_date, end_date, monthly_rent, status)
-                VALUES (?, ?, ?, ?, ?, ?, 'active')`,
+                    (property_id, tenant_id, landlord_id, start_date, end_date, monthly_rent, deposit_amount, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?, 'active')`,
                 [
                     data.id_apt,
                     data.tenant_id,
                     data.landlord_id,
                     data.start_date,
                     data.end_date,
-                    data.monthly_rent
+                    data.monthly_rent,
+                    data.deposit_amount || null
                 ]
             );
 
@@ -85,8 +86,10 @@ class Contract {
         const [results] = await db.query(
             `SELECT r.*, 
                     a.direccion_apt, b.barrio,
-                    tenant.user_name as tenant_name, tenant.user_email as tenant_email,
-                    landlord.user_name as landlord_name, landlord.user_email as landlord_email
+                    tenant.user_name as tenant_name, tenant.user_lastname as tenant_lastname,
+                    tenant.user_email as tenant_email,
+                    landlord.user_name as landlord_name, landlord.user_lastname as landlord_lastname,
+                    landlord.user_email as landlord_email
             FROM rental_agreements r
             LEFT JOIN apartments a ON r.property_id = a.id_apt
             LEFT JOIN barrio b ON a.id_barrio = b.id_barrio
@@ -329,6 +332,63 @@ class Contract {
         return results;
     }
 
+    static async sign(agreement_id, userId, role, signatureBase64) {
+        const connection = await db.getConnection();
+        try {
+            await connection.beginTransaction();
+            const [contract] = await connection.query(
+                'SELECT * FROM rental_agreements WHERE agreement_id = ?',
+                [agreement_id]
+            );
+            if (contract.length === 0) throw new Error('Contrato no encontrado');
+
+            const isTenant = contract[0].tenant_id === parseInt(userId);
+            const isLandlord = contract[0].landlord_id === parseInt(userId);
+            if (!isTenant && !isLandlord) throw new Error('No eres parte de este contrato');
+            if (role === 1 && !isTenant) throw new Error('No eres el inquilino de este contrato');
+            if (role === 2 && !isLandlord) throw new Error('No eres el arrendador de este contrato');
+
+            const { uploadSignature } = require('../utils/idriveService');
+            const roleLabel = isTenant ? 'tenant' : 'landlord';
+
+            if (isTenant) {
+                if (contract[0].tenant_signature_key) throw new Error('Ya has firmado este contrato');
+                const key = await uploadSignature(agreement_id, roleLabel, signatureBase64);
+                await connection.execute(
+                    'UPDATE rental_agreements SET tenant_signature_key = ?, tenant_signed_at = NOW() WHERE agreement_id = ?',
+                    [key, agreement_id]
+                );
+            } else {
+                if (contract[0].landlord_signature_key) throw new Error('Ya has firmado este contrato');
+                const key = await uploadSignature(agreement_id, roleLabel, signatureBase64);
+                await connection.execute(
+                    'UPDATE rental_agreements SET landlord_signature_key = ?, landlord_signed_at = NOW() WHERE agreement_id = ?',
+                    [key, agreement_id]
+                );
+            }
+
+            const [updated] = await connection.query(
+                'SELECT * FROM rental_agreements WHERE agreement_id = ?',
+                [agreement_id]
+            );
+
+            await connection.commit();
+            return updated[0];
+        } catch (error) {
+            await connection.rollback();
+            throw error;
+        } finally {
+            connection.release();
+        }
+    }
+
+    static async saveSignedPdfKey(agreement_id, pdfKey) {
+        await db.execute(
+            'UPDATE rental_agreements SET signed_pdf_key = ? WHERE agreement_id = ?',
+            [pdfKey, agreement_id]
+        );
+    }
+
     static async hasUserRentedProperty(userId, propertyId) {
         const [results] = await db.query(
             `SELECT agreement_id, status, start_date, end_date
@@ -347,12 +407,15 @@ class Contract {
             await connection.beginTransaction();
 
             const [contract] = await connection.query(
-                'SELECT * FROM rental_agreements WHERE agreement_id = ? AND status = \'active\'',
+                `SELECT * FROM rental_agreements 
+                 WHERE agreement_id = ? 
+                   AND (status = 'active' 
+                        OR (status = 'expired' AND end_date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)))`,
                 [agreement_id]
             );
 
             if (contract.length === 0) {
-                throw new Error('Contrato no encontrado o no está activo');
+                throw new Error('Contrato no encontrado, no está activo o el período de gracia expiró');
             }
 
             await connection.execute(
@@ -519,6 +582,68 @@ class Contract {
 
             await connection.commit();
             return expiredContracts.length;
+        } catch (error) {
+            await connection.rollback();
+            throw error;
+        } finally {
+            connection.release();
+        }
+    }
+
+    static async cancelUnsignedContracts() {
+        const connection = await db.getConnection();
+        try {
+            await connection.beginTransaction();
+
+            const [unsignedContracts] = await connection.query(
+                `SELECT r.agreement_id, r.property_id, r.created_at,
+                        u.user_email, u.user_name, u.user_lastname,
+                        a.direccion_apt, b.barrio
+                FROM rental_agreements r
+                JOIN apartments a ON r.property_id = a.id_apt
+                LEFT JOIN barrio b ON a.id_barrio = b.id_barrio
+                JOIN users u ON r.tenant_id = u.user_id
+                WHERE r.status IN ('active', 'pending')
+                  AND r.created_at < DATE_SUB(NOW(), INTERVAL 7 DAY)
+                  AND (r.tenant_signature_key IS NULL OR r.landlord_signature_key IS NULL)`
+            );
+
+            if (unsignedContracts.length > 0) {
+                for (const contract of unsignedContracts) {
+                    await connection.execute(
+                        'UPDATE rental_agreements SET status = ? WHERE agreement_id = ?',
+                        ['terminated', contract.agreement_id]
+                    );
+
+                    const [otherActive] = await connection.query(
+                        'SELECT agreement_id FROM rental_agreements WHERE property_id = ? AND status IN (\'active\', \'pending\') AND agreement_id != ?',
+                        [contract.property_id, contract.agreement_id]
+                    );
+                    if (otherActive.length === 0) {
+                        await connection.execute(
+                            'UPDATE apartments SET status = ? WHERE id_apt = ?',
+                            ['available', contract.property_id]
+                        );
+                    }
+
+                    try {
+                        const { sendContractCancelledEmail } = require('../utils/emailService');
+                        sendContractCancelledEmail(
+                            contract.user_email,
+                            contract.user_name,
+                            contract.user_lastname,
+                            contract.direccion_apt,
+                            contract.barrio
+                        ).catch(e => console.error('Error email cancelacion:', e.message));
+                    } catch (emailErr) {
+                        console.warn('Error enviando email de cancelacion:', emailErr.message);
+                    }
+                }
+                console.log(`Cancelled ${unsignedContracts.length} unsigned contracts automatically (7 days without both signatures)`);
+            }
+
+            await connection.commit();
+            return unsignedContracts.length;
         } catch (error) {
             await connection.rollback();
             throw error;

@@ -46,7 +46,7 @@ class CreatePaymentDTO {
         if (!this.amount || isNaN(this.amount) || this.amount <= 0) {
             errors.push('amount debe ser un número mayor a 0');
         }
-        if (!['card', 'paypal', 'transfer', 'cash', 'other'].includes(this.payment_method)) {
+        if (!['card', 'paypal', 'transfer', 'cash', 'other', 'simulated'].includes(this.payment_method)) {
             errors.push('payment_method debe ser: card, paypal, transfer, cash u other');
         }
         return { isValid: errors.length === 0, errors };

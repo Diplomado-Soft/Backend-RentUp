@@ -18,5 +18,13 @@ router.get('/stats/monthly', authMiddleware, contractController.getMonthlyStats)
 router.put('/:agreement_id/sign', authMiddleware, contractController.signContract);
 router.post('/:agreement_id/renew', authMiddleware, contractController.renewContract);
 router.post('/:agreement_id/end', authMiddleware, contractController.endAndMakeAvailable);
+router.put('/:agreement_id/sign', authMiddleware, contractController.signContract);
+router.get('/:agreement_id/pdf', (req, res, next) => {
+    const token = req.query.token || req.headers.authorization?.replace('Bearer ', '');
+    if (token && !req.headers.authorization) {
+        req.headers.authorization = `Bearer ${token}`;
+    }
+    authMiddleware(req, res, next);
+}, contractController.getContractPdf);
 
 module.exports = router;

@@ -205,6 +205,121 @@ exports.deleteImageByUrl = async (imageUrl) => {
     }
 };
 
+/**
+ * Subir firma como PNG a IDrive e2
+ * @param {number} agreement_id - ID del contrato
+ * @param {'tenant'|'landlord'} role - Rol del firmante
+ * @param {string} base64 - Datos base64 de la firma (data:image/png;base64,...)
+ * @returns {Promise<string>} - Key del objeto en S3
+ */
+exports.uploadSignature = async (agreement_id, role, base64) => {
+    const raw = base64.replace(/^data:image\/\w+;base64,/, '');
+    const buffer = Buffer.from(raw, 'base64');
+    const timestamp = Date.now();
+    const key = `signatures/${agreement_id}/${role}_${timestamp}.png`;
+
+    const uploadCommand = new PutObjectCommand({
+        Bucket: BUCKET_NAME,
+        Key: key,
+        Body: buffer,
+        ContentType: 'image/png',
+        Metadata: {
+            'agreement-id': agreement_id.toString(),
+            'signer-role': role
+        }
+    });
+
+    await s3Client.send(uploadCommand);
+    console.log(`✅ Firma subida a IDrive e2: ${key}`);
+    return key;
+};
+
+/**
+ * Obtener firma como base64 desde IDrive e2
+ * @param {string} key - Key del objeto en S3
+ * @returns {Promise<string|null>} - base64 data URI o null si no existe
+ */
+exports.getSignatureBase64 = async (key) => {
+    if (!key) return null;
+    try {
+        const getCommand = new GetObjectCommand({
+            Bucket: BUCKET_NAME,
+            Key: key
+        });
+
+        const response = await s3Client.send(getCommand);
+        const chunks = [];
+        for await (const chunk of response.Body) {
+            chunks.push(chunk);
+        }
+        const buffer = Buffer.concat(chunks);
+        return `data:image/png;base64,${buffer.toString('base64')}`;
+    } catch (error) {
+        console.error(`Error obteniendo firma de IDrive (${key}):`, error.message);
+        return null;
+    }
+};
+
+exports.uploadSignedPdf = async (pdfBuffer, key) => {
+    try {
+        const uploadCommand = new PutObjectCommand({
+            Bucket: BUCKET_NAME,
+            Key: key,
+            Body: pdfBuffer,
+            ContentType: 'application/pdf',
+            Metadata: {
+                'upload-type': 'signed-contract'
+            }
+        });
+
+        await s3Client.send(uploadCommand);
+        console.log(`Signed PDF uploaded to IDrive e2: ${key}`);
+        return { key };
+    } catch (error) {
+        console.error('Error uploading signed PDF:', error.message);
+        throw new Error(`Error al subir PDF firmado: ${error.message}`);
+    }
+};
+
+exports.uploadReceipt = async (pdfBuffer, paymentId) => {
+    const key = `receipts/${paymentId}.pdf`;
+
+    const uploadCommand = new PutObjectCommand({
+        Bucket: BUCKET_NAME,
+        Key: key,
+        Body: pdfBuffer,
+        ContentType: 'application/pdf',
+        Metadata: {
+            'payment-id': paymentId.toString(),
+            'upload-type': 'receipt'
+        }
+    });
+
+    await s3Client.send(uploadCommand);
+    console.log(`✅ Recibo subido a IDrive e2: ${key}`);
+    return key;
+};
+
+exports.getSignedPdfUrl = async (key) => {
+    try {
+        const getCommand = new GetObjectCommand({
+            Bucket: BUCKET_NAME,
+            Key: key
+        });
+
+        const signedUrl = await generateSignedUrl(s3Client, getCommand, {
+            expiresIn: URL_EXPIRATION
+        });
+
+        const expiresAt = new Date(Date.now() + URL_EXPIRATION * 1000);
+
+        return { signedUrl, expiresAt };
+    } catch (error) {
+        console.error('Error getting signed PDF URL:', error.message);
+        return null;
+    }
+};
+
 exports.testConnection = async () => {
     try {
         const headCommand = new HeadBucketCommand({ 
