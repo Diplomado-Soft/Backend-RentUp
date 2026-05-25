@@ -71,3 +71,17 @@ exports.markAllRead = async (req, res) => {
         res.status(500).json({ error: 'Error al marcar notificaciones' });
     }
 };
+
+exports.deleteNotification = async (req, res) => {
+    try {
+        const user_id   = req.user.id || req.user.id;
+        const user_role = req.user.rol || req.user.rol || req.user.rol;
+        if (user_role !== 3 && user_role !== '3') return res.status(403).json({ error: 'Acceso denegado' });
+
+        const { id } = req.params;
+        await NotificationModel.delete(parseInt(id), user_id);
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: 'Error al eliminar notificación' });
+    }
+};
