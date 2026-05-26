@@ -26,6 +26,8 @@ class ContractDTO {
         this.tenant_signed_at = contract.tenant_signed_at || null;
         this.landlord_signed_at = contract.landlord_signed_at || null;
         this.signed_pdf_key = contract.signed_pdf_key || null;
+        this.signed_pdf_url = contract.signed_pdf_url || null;
+        this.signed_pdf_expires_at = contract.signed_pdf_expires_at || null;
         this.tenant_signature_key = contract.tenant_signature_key || null;
         this.landlord_signature_key = contract.landlord_signature_key || null;
     }

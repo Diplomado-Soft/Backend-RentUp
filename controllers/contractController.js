@@ -394,6 +394,12 @@ exports.signContract = async (req, res) => {
 
             await Contract.saveSignedPdfKey(contract.agreement_id, pdfKey);
 
+            const { getSignedPdfUrl } = require('../utils/idriveService');
+            const pdfUrlResult = await getSignedPdfUrl(pdfKey);
+            if (pdfUrlResult) {
+                await Contract.saveSignedPdfSignedUrl(contract.agreement_id, pdfUrlResult.signedUrl, pdfUrlResult.expiresAt);
+            }
+
             try {
                 const [tenant] = await db.query(
                     'SELECT user_name, user_lastname, user_email FROM users WHERE user_id = ?',
@@ -456,6 +462,10 @@ exports.getContractPdf = async (req, res) => {
 
         if (contract.tenant_id !== parseInt(userId) && contract.landlord_id !== parseInt(userId)) {
             return res.status(403).json({ error: 'No eres parte de este contrato' });
+        }
+
+        if (contract.tenant_signature_key && contract.landlord_signature_key && contract.signed_pdf_key) {
+            await Contract.refreshSignedPdfUrl(agreement_id);
         }
 
         const { getSignatureBase64 } = require('../utils/idriveService');

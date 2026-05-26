@@ -130,6 +130,16 @@ class Payment {
             values.push(additionalFields.receipt_url);
         }
 
+        if (additionalFields.receipt_signed_url) {
+            fields.push('receipt_signed_url = ?');
+            values.push(additionalFields.receipt_signed_url);
+        }
+
+        if (additionalFields.receipt_url_expires_at) {
+            fields.push('receipt_url_expires_at = ?');
+            values.push(additionalFields.receipt_url_expires_at);
+        }
+
         values.push(paymentId);
 
         const [result] = await db.query(
