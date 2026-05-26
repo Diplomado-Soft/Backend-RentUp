@@ -107,9 +107,11 @@ const kycRoutes = require('./routes/kycRoutes');
 const maintenanceRoutes = require('./routes/maintenanceRoutes');
 const visitRoutes = require('./routes/visitRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
+const visitRoutes = require('./routes/visitRoutes');
 const paymentController = require('./controllers/paymentController');
 const KycModel = require('./models/KycModel');
 const MaintenanceModel = require('./models/MaintenanceModel');
+const VisitModel = require('./models/VisitModel');
 const PaymentModel = require('./models/PaymentModel');
 const { ChatModel } = require('./chat/chatModel');
 
@@ -133,6 +135,7 @@ app.use('/visits', visitRoutes);
 // Webhook de Stripe (body crudo, sin JSON parse)
 app.post('/payments/webhook', paymentController.handleWebhook,express.raw({ type: 'application/json' }));
 app.use('/payments', paymentRoutes);
+app.use('/visits', visitRoutes);
 
 // === Manejo de errores ===
 app.use((_, res) => res.status(404).json({ error: 'Endpoint no encontrado' }));
@@ -251,6 +254,7 @@ module.exports.emitAdminNotification = emitAdminNotification;
             await ChatModel.init();
             await KycModel.init();
             await MaintenanceModel.init();
+            await VisitModel.init();
             console.log('✅ Modelos inicializados');
         } catch (modelErr) {
             console.warn('⚠️ Advertencia inicializando modelos:', modelErr.message);

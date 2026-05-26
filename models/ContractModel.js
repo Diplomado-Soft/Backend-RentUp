@@ -342,8 +342,19 @@ class Contract {
             );
             if (contract.length === 0) throw new Error('Contrato no encontrado');
 
-            const isTenant = contract[0].tenant_id === parseInt(userId);
-            const isLandlord = contract[0].landlord_id === parseInt(userId);
+            const c = contract[0];
+
+            if (c.status === 'terminated' || c.status === 'expired') {
+                throw new Error('El contrato ya ha finalizado y no puede ser firmado');
+            }
+
+            const diasDesdeCreacion = (Date.now() - new Date(c.created_at).getTime()) / (1000 * 60 * 60 * 24);
+            if (diasDesdeCreacion > 7) {
+                throw new Error('El plazo de 7 días para firmar el contrato ha expirado');
+            }
+
+            const isTenant = c.tenant_id === parseInt(userId);
+            const isLandlord = c.landlord_id === parseInt(userId);
             if (!isTenant && !isLandlord) throw new Error('No eres parte de este contrato');
             if (role === 1 && !isTenant) throw new Error('No eres el inquilino de este contrato');
             if (role === 2 && !isLandlord) throw new Error('No eres el arrendador de este contrato');
@@ -352,14 +363,14 @@ class Contract {
             const roleLabel = isTenant ? 'tenant' : 'landlord';
 
             if (isTenant) {
-                if (contract[0].tenant_signature_key) throw new Error('Ya has firmado este contrato');
+                if (c.tenant_signature_key) throw new Error('Ya has firmado este contrato');
                 const key = await uploadSignature(agreement_id, roleLabel, signatureBase64);
                 await connection.execute(
                     'UPDATE rental_agreements SET tenant_signature_key = ?, tenant_signed_at = NOW() WHERE agreement_id = ?',
                     [key, agreement_id]
                 );
             } else {
-                if (contract[0].landlord_signature_key) throw new Error('Ya has firmado este contrato');
+                if (c.landlord_signature_key) throw new Error('Ya has firmado este contrato');
                 const key = await uploadSignature(agreement_id, roleLabel, signatureBase64);
                 await connection.execute(
                     'UPDATE rental_agreements SET landlord_signature_key = ?, landlord_signed_at = NOW() WHERE agreement_id = ?',
@@ -387,6 +398,32 @@ class Contract {
             'UPDATE rental_agreements SET signed_pdf_key = ? WHERE agreement_id = ?',
             [pdfKey, agreement_id]
         );
+    }
+
+    static async saveSignedPdfSignedUrl(agreement_id, signedUrl, expiresAt) {
+        await db.execute(
+            'UPDATE rental_agreements SET signed_pdf_url = ?, signed_pdf_expires_at = ? WHERE agreement_id = ?',
+            [signedUrl, expiresAt, agreement_id]
+        );
+    }
+
+    static async refreshSignedPdfUrl(agreement_id) {
+        const { getSignedPdfUrl } = require('../utils/idriveService');
+        const [rows] = await db.execute(
+            'SELECT signed_pdf_key, signed_pdf_url, signed_pdf_expires_at FROM rental_agreements WHERE agreement_id = ?',
+            [agreement_id]
+        );
+        if (rows.length === 0 || !rows[0].signed_pdf_key) return null;
+        const row = rows[0];
+        const isExpired = !row.signed_pdf_expires_at || (new Date(row.signed_pdf_expires_at).getTime() - 3600000 < Date.now());
+        if (isExpired) {
+            const result = await getSignedPdfUrl(row.signed_pdf_key);
+            if (result) {
+                await this.saveSignedPdfSignedUrl(agreement_id, result.signedUrl, result.expiresAt);
+                return result.signedUrl;
+            }
+        }
+        return row.signed_pdf_url;
     }
 
     static async hasUserRentedProperty(userId, propertyId) {

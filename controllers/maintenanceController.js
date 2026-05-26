@@ -18,7 +18,7 @@ exports.createReport = async (req, res) => {
             return res.status(403).json({ error: 'No tienes un contrato activo en esta propiedad' });
         }
 
-        let image_url = null;
+        let image_url = null, s3_key = null, expires_at = null;
         if (req.file) {
             const processed = await sharp(req.file.buffer)
                 .resize({ width: 1920, height: 1920, fit: 'inside', withoutEnlargement: true })
@@ -29,10 +29,12 @@ exports.createReport = async (req, res) => {
                 processed, tenant_id, property_id, req.file.originalname
             );
             image_url = uploadResult.signedUrl;
+            s3_key = uploadResult.key;
+            expires_at = uploadResult.expiresAt;
         }
 
         const insertId = await MaintenanceModel.create({
-            property_id, tenant_id, title, description, priority, image_url
+            property_id, tenant_id, title, description, priority, image_url, s3_key, expires_at
         });
 
         const report = await MaintenanceModel.getById(insertId);

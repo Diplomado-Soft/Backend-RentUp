@@ -113,7 +113,13 @@ exports.confirmPayment = async (req, res) => {
             const pdfBuffer = await generateReceiptBuffer(updated);
             const idrive = require('../utils/idriveService');
             const receiptKey = await idrive.uploadReceipt(pdfBuffer, payment_id);
-            await Payment.updateStatus(payment_id, 'completed', { ...updates, receipt_url: receiptKey });
+            const signed = await idrive.getSignedPdfUrl(receiptKey);
+            const receiptUpdates = { ...updates, receipt_url: receiptKey };
+            if (signed) {
+                receiptUpdates.receipt_signed_url = signed.signedUrl;
+                receiptUpdates.receipt_url_expires_at = signed.expiresAt;
+            }
+            await Payment.updateStatus(payment_id, 'completed', receiptUpdates);
             updated.receipt_url = receiptKey;
         } catch (pdfErr) {
             console.error('Error generating/uploading receipt PDF:', pdfErr.message);
@@ -126,7 +132,9 @@ exports.confirmPayment = async (req, res) => {
             const [apt] = await db.query('SELECT direccion_apt FROM apartments WHERE id_apt = ?', [contract?.property_id]);
 
             let receiptLink = '';
-            if (updated.receipt_url && !updated.receipt_url.startsWith('/payments/')) {
+            if (updated.receipt_signed_url) {
+                receiptLink = updated.receipt_signed_url;
+            } else if (updated.receipt_url && !updated.receipt_url.startsWith('/payments/')) {
                 const idrive = require('../utils/idriveService');
                 const signed = await idrive.getSignedPdfUrl(updated.receipt_url);
                 receiptLink = signed?.signedUrl || '';
@@ -216,8 +224,16 @@ exports.downloadReceipt = async (req, res) => {
 
         if (payment.receipt_url && !payment.receipt_url.startsWith('/payments/')) {
             const idrive = require('../utils/idriveService');
+            const isExpired = !payment.receipt_url_expires_at || (new Date(payment.receipt_url_expires_at).getTime() - 3600000 < Date.now());
+            if (payment.receipt_signed_url && !isExpired) {
+                return res.json({ url: payment.receipt_signed_url, expiresAt: payment.receipt_url_expires_at });
+            }
             const result = await idrive.getSignedPdfUrl(payment.receipt_url);
             if (result) {
+                await Payment.updateStatus(payment_id, payment.status, {
+                    receipt_signed_url: result.signedUrl,
+                    receipt_url_expires_at: result.expiresAt
+                });
                 return res.json({ url: result.signedUrl, expiresAt: result.expiresAt });
             }
         }

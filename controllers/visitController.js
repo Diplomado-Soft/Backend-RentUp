@@ -1,91 +1,128 @@
-const Visit = require('../models/VisitModel');
-const { CreateVisitDTO, VisitDTO } = require('../dtos/VisitDTO');
+const VisitModel = require('../models/VisitModel');
+const db = require('../config/db');
 
 exports.schedule = async (req, res) => {
     try {
-        const userId = req.user?.id || req.user?.userId;
+        const tenant_id = req.user.id;
+        const { property_id, landlord_id, visit_date } = req.body;
 
-        const createDTO = new CreateVisitDTO({
-            ...req.body,
-            tenant_id: userId
-        });
-
-        const validation = createDTO.validate();
-        if (!validation.isValid) {
-            return res.status(400).json({
-                error: 'Datos de visita inválidos',
-                errors: validation.errors
-            });
+        if (!property_id || !landlord_id || !visit_date) {
+            return res.status(400).json({ error: 'property_id, landlord_id y visit_date son requeridos' });
         }
 
-        const dtoData = createDTO.toDatabaseFormat();
-        const visit = await Visit.create(dtoData);
+        // El dueño del apartamento no puede agendar visita a su propia propiedad
+        const [property] = await db.execute(
+            'SELECT user_id FROM apartments WHERE id_apt = ?',
+            [property_id]
+        );
+        if (!property || property.length === 0) {
+            return res.status(404).json({ error: 'Propiedad no encontrada' });
+        }
+        if (property[0].user_id === tenant_id) {
+            return res.status(403).json({ error: 'No puedes agendar una visita a tu propia propiedad' });
+        }
 
-        res.status(201).json({
-            message: 'Visita agendada exitosamente',
-            visit: VisitDTO.fromDatabase(visit)
-        });
+        const visitDate = new Date(visit_date);
+        if (isNaN(visitDate.getTime())) {
+            return res.status(400).json({ error: 'Fecha de visita inválida' });
+        }
+
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        tomorrow.setHours(0, 0, 0, 0);
+        if (visitDate < tomorrow) {
+            return res.status(400).json({ error: 'La visita debe agendarse con al menos un día de anticipación' });
+        }
+
+        const taken = await VisitModel.isTimeSlotTaken(property_id, visit_date);
+        if (taken) {
+            return res.status(409).json({ error: 'Este horario ya está ocupado. Por favor selecciona otro.' });
+        }
+
+        const insertId = await VisitModel.schedule({ property_id, tenant_id, landlord_id, visit_date });
+        const visit = await VisitModel.getById(insertId);
+
+        res.status(201).json({ success: true, message: 'Visita agendada exitosamente', visit });
     } catch (error) {
-        if (error.statusCode === 409) {
-            return res.status(409).json({ error: error.message });
-        }
         console.error('Error agendando visita:', error);
-        res.status(500).json({ error: 'Error al agendar la visita', message: error.message });
-    }
-};
-
-exports.getLandlordVisits = async (req, res) => {
-    try {
-        const userId = req.user?.id || req.user?.userId;
-        const visits = await Visit.getByLandlord(userId);
-        res.json(VisitDTO.fromDatabaseList(visits));
-    } catch (error) {
-        console.error('Error obteniendo visitas del arrendador:', error);
-        res.status(500).json({ error: 'Error al obtener las visitas' });
+        res.status(500).json({ error: error.message });
     }
 };
 
 exports.getMyVisits = async (req, res) => {
     try {
-        const userId = req.user?.id || req.user?.userId;
-        const visits = await Visit.getByTenant(userId);
-        res.json(VisitDTO.fromDatabaseList(visits));
+        const visits = await VisitModel.getByTenant(req.user.id);
+        res.json(visits);
     } catch (error) {
-        console.error('Error obteniendo mis visitas:', error);
-        res.status(500).json({ error: 'Error al obtener las visitas' });
+        console.error('Error obteniendo visitas:', error);
+        res.status(500).json({ error: error.message });
     }
 };
 
-exports.confirmVisit = async (req, res) => {
+exports.getLandlordVisits = async (req, res) => {
+    try {
+        const visits = await VisitModel.getByLandlord(req.user.id);
+        res.json(visits);
+    } catch (error) {
+        console.error('Error obteniendo visitas:', error);
+        res.status(500).json({ error: error.message });
+    }
+};
+
+exports.confirm = async (req, res) => {
     try {
         const { id } = req.params;
-        const visit = await Visit.confirm(parseInt(id, 10));
+        const visit = await VisitModel.getById(id);
 
-        res.json({
-            message: 'Visita confirmada exitosamente',
-            visit: VisitDTO.fromDatabase(visit)
-        });
-    } catch (error) {
-        if (error.statusCode === 404 || error.statusCode === 409) {
-            return res.status(error.statusCode).json({ error: error.message });
+        if (!visit) return res.status(404).json({ error: 'Visita no encontrada' });
+        if (visit.landlord_id !== req.user.id) {
+            return res.status(403).json({ error: 'No eres el arrendador de esta propiedad' });
         }
+        if (visit.status !== 'pending') {
+            return res.status(400).json({ error: 'Esta visita ya fue procesada' });
+        }
+
+        await VisitModel.confirm(id);
+        const updated = await VisitModel.getById(id);
+
+        res.json({ success: true, message: 'Visita confirmada', visit: updated });
+    } catch (error) {
         console.error('Error confirmando visita:', error);
-        res.status(500).json({ error: 'Error al confirmar la visita', message: error.message });
+        res.status(500).json({ error: error.message });
     }
 };
 
-exports.cancelVisit = async (req, res) => {
+exports.cancel = async (req, res) => {
     try {
         const { id } = req.params;
-        const result = await Visit.cancel(parseInt(id, 10));
+        const visit = await VisitModel.getById(id);
 
-        if (result.affectedRows === 0) {
-            return res.status(404).json({ error: 'Visita no encontrada o ya fue procesada' });
+        if (!visit) return res.status(404).json({ error: 'Visita no encontrada' });
+        if (visit.tenant_id !== req.user.id && visit.landlord_id !== req.user.id) {
+            return res.status(403).json({ error: 'No autorizado' });
+        }
+        if (visit.status !== 'pending') {
+            return res.status(400).json({ error: 'Esta visita ya fue procesada' });
         }
 
-        res.json({ message: 'Visita cancelada exitosamente' });
+        await VisitModel.cancel(id);
+        res.json({ success: true, message: 'Visita cancelada' });
     } catch (error) {
         console.error('Error cancelando visita:', error);
-        res.status(500).json({ error: 'Error al cancelar la visita' });
+        res.status(500).json({ error: error.message });
+    }
+};
+
+exports.getOccupiedSlots = async (req, res) => {
+    try {
+        const { property_id, date } = req.query;
+        if (!property_id || !date) {
+            return res.status(400).json({ error: 'property_id y date son requeridos' });
+        }
+        const slots = await VisitModel.getOccupiedSlots(property_id, date);
+        res.json({ occupied: slots });
+    } catch (error) {
+        console.error('Error obteniendo slots ocupados:', error);
+        res.status(500).json({ error: error.message });
     }
 };

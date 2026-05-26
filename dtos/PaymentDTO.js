@@ -10,6 +10,8 @@ class PaymentDTO {
         this.stripe_payment_intent_id = payment.stripe_payment_intent_id || null;
         this.paypal_order_id = payment.paypal_order_id || null;
         this.receipt_url = payment.receipt_url || null;
+        this.receipt_signed_url = payment.receipt_signed_url || null;
+        this.receipt_url_expires_at = payment.receipt_url_expires_at || null;
         this.paid_at = payment.paid_at;
         this.created_at = payment.created_at;
 

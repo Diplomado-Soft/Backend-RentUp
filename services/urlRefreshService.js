@@ -58,10 +58,8 @@ const refreshExpiredUrls = async () => {
 
         for (const image of images) {
             try {
-                // Generar nueva URL firmada
                 const { signedUrl, expiresAt } = await idriveService.getSignedUrl(image.s3_key);
 
-                // Actualizar en la BD
                 await connection.query(`
                     UPDATE apartment_images
                     SET signed_url = ?,
@@ -75,6 +73,105 @@ const refreshExpiredUrls = async () => {
             } catch (error) {
                 errorCount++;
                 console.error(`❌ Error renovando URL para imagen ${image.id_image}:`, error.message);
+            }
+        }
+
+        // También renovar URLs de maintenance_reports
+        const [maintenanceImages] = await connection.query(`
+            SELECT id, s3_key, image_url, expires_at
+            FROM maintenance_reports
+            WHERE s3_key IS NOT NULL
+            AND expires_at IS NOT NULL
+            AND expires_at < DATE_ADD(NOW(), INTERVAL 1 HOUR)
+        `);
+
+        if (maintenanceImages && maintenanceImages.length > 0) {
+            console.log(`🔄 Renovando ${maintenanceImages.length} URL(s) de mantenimiento...`);
+
+            for (const report of maintenanceImages) {
+                try {
+                    const { signedUrl, expiresAt } = await idriveService.getSignedUrl(report.s3_key);
+
+                    await connection.query(`
+                        UPDATE maintenance_reports
+                        SET image_url = ?,
+                            expires_at = ?
+                        WHERE id = ?
+                    `, [signedUrl, expiresAt, report.id]);
+
+                    renovatedCount++;
+                    console.log(`✅ URL de mantenimiento renovada para reporte ${report.id}`);
+                } catch (error) {
+                    errorCount++;
+                    console.error(`❌ Error renovando URL de mantenimiento para reporte ${report.id}:`, error.message);
+                }
+            }
+        }
+
+        // Renovar URLs de contratos firmados
+        const [contractPdfs] = await connection.query(`
+            SELECT agreement_id, signed_pdf_key, signed_pdf_url, signed_pdf_expires_at
+            FROM rental_agreements
+            WHERE signed_pdf_key IS NOT NULL
+            AND signed_pdf_expires_at IS NOT NULL
+            AND signed_pdf_expires_at < DATE_ADD(NOW(), INTERVAL 1 HOUR)
+        `);
+
+        if (contractPdfs && contractPdfs.length > 0) {
+            console.log(`🔄 Renovando ${contractPdfs.length} URL(s) de contratos firmados...`);
+
+            for (const row of contractPdfs) {
+                try {
+                    const result = await idriveService.getSignedPdfUrl(row.signed_pdf_key);
+                    if (result) {
+                        await connection.query(`
+                            UPDATE rental_agreements
+                            SET signed_pdf_url = ?,
+                                signed_pdf_expires_at = ?
+                            WHERE agreement_id = ?
+                        `, [result.signedUrl, result.expiresAt, row.agreement_id]);
+
+                        renovatedCount++;
+                        console.log(`✅ URL de contrato renovada para agreement ${row.agreement_id}`);
+                    }
+                } catch (error) {
+                    errorCount++;
+                    console.error(`❌ Error renovando URL de contrato ${row.agreement_id}:`, error.message);
+                }
+            }
+        }
+
+        // Renovar URLs de recibos
+        const [receiptPdfs] = await connection.query(`
+            SELECT payment_id, receipt_url, receipt_signed_url, receipt_url_expires_at
+            FROM payments
+            WHERE receipt_url IS NOT NULL
+            AND receipt_url NOT LIKE '/payments/%'
+            AND receipt_url_expires_at IS NOT NULL
+            AND receipt_url_expires_at < DATE_ADD(NOW(), INTERVAL 1 HOUR)
+        `);
+
+        if (receiptPdfs && receiptPdfs.length > 0) {
+            console.log(`🔄 Renovando ${receiptPdfs.length} URL(s) de recibos...`);
+
+            for (const row of receiptPdfs) {
+                try {
+                    const result = await idriveService.getSignedPdfUrl(row.receipt_url);
+                    if (result) {
+                        await connection.query(`
+                            UPDATE payments
+                            SET receipt_signed_url = ?,
+                                receipt_url_expires_at = ?
+                            WHERE payment_id = ?
+                        `, [result.signedUrl, result.expiresAt, row.payment_id]);
+
+                        renovatedCount++;
+                        console.log(`✅ URL de recibo renovada para payment ${row.payment_id}`);
+                    }
+                } catch (error) {
+                    errorCount++;
+                    console.error(`❌ Error renovando URL de recibo ${row.payment_id}:`, error.message);
+                }
             }
         }
 
