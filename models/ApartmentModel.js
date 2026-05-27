@@ -597,6 +597,21 @@ class Apartment {
                 } catch (notifError) {
                     console.error('Error creando notificación:', notifError);
                 }
+
+                // Notificación push
+                try {
+                    const pushService = require('../services/pushService');
+                    pushService.sendToUser(landlordId, {
+                        title: 'Apartamento aprobado',
+                        body: `Tu apartamento en ${aptInfo[0].direccion_apt} ha sido aprobado y ya está publicado`,
+                        url: '/dashboard',
+                        type: 'apartment_approved',
+                        referenceId: id_apt,
+                        referenceType: 'apartment',
+                    }).catch(e => console.error('Error push notif:', e.message));
+                } catch (pushErr) {
+                    console.error('Error enviando push de aprobación:', pushErr.message);
+                }
             }
 
             // Enviar correo de aprobación al arrendador

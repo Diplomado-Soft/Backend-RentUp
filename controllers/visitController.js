@@ -1,5 +1,6 @@
 const VisitModel = require('../models/VisitModel');
 const db = require('../config/db');
+const pushService = require('../services/pushService');
 
 exports.schedule = async (req, res) => {
     try {
@@ -41,6 +42,36 @@ exports.schedule = async (req, res) => {
 
         const insertId = await VisitModel.schedule({ property_id, tenant_id, landlord_id, visit_date });
         const visit = await VisitModel.getById(insertId);
+
+        // Notificación push al arrendador
+        try {
+            const [aptInfo] = await db.execute(
+                'SELECT direccion_apt FROM apartments WHERE id_apt = ?',
+                [property_id]
+            );
+            const [tenantInfo] = await db.execute(
+                'SELECT user_name, user_lastname FROM users WHERE user_id = ?',
+                [tenant_id]
+            );
+            const tenantName = tenantInfo.length > 0
+                ? `${tenantInfo[0].user_name} ${tenantInfo[0].user_lastname}`
+                : 'Un estudiante';
+            const aptAddress = aptInfo.length > 0 ? aptInfo[0].direccion_apt : 'una propiedad';
+            const visitDateStr = new Date(visit_date).toLocaleDateString('es-CO', {
+                day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit'
+            });
+
+            pushService.sendToUser(landlord_id, {
+                title: 'Nueva visita agendada',
+                body: `${tenantName} ha agendado una visita a ${aptAddress} para el ${visitDateStr}`,
+                url: '/dashboard',
+                type: 'visit_scheduled',
+                referenceId: insertId,
+                referenceType: 'visit',
+            }).catch(e => console.error('Error push notif:', e.message));
+        } catch (pushErr) {
+            console.error('Error enviando push de visita:', pushErr.message);
+        }
 
         res.status(201).json({ success: true, message: 'Visita agendada exitosamente', visit });
     } catch (error) {
@@ -101,12 +132,13 @@ exports.cancel = async (req, res) => {
         if (visit.tenant_id !== req.user.id && visit.landlord_id !== req.user.id) {
             return res.status(403).json({ error: 'No autorizado' });
         }
-        if (visit.status !== 'pending') {
-            return res.status(400).json({ error: 'Esta visita ya fue procesada' });
+        if (visit.status === 'cancelled') {
+            return res.status(400).json({ error: 'Esta visita ya fue cancelada' });
         }
 
         await VisitModel.cancel(id);
-        res.json({ success: true, message: 'Visita cancelada' });
+        console.log(`📅 Visita ${id} cancelada, horario liberado para otros usuarios`);
+        res.json({ success: true, message: 'Visita cancelada. El horario ha sido liberado.' });
     } catch (error) {
         console.error('Error cancelando visita:', error);
         res.status(500).json({ error: error.message });
