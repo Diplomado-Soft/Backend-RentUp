@@ -107,6 +107,7 @@ const kycRoutes = require('./routes/kycRoutes');
 const maintenanceRoutes = require('./routes/maintenanceRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
 const visitRoutes = require('./routes/visitRoutes');
+const pushRoutes = require('./routes/pushRoutes');
 const paymentController = require('./controllers/paymentController');
 const KycModel = require('./models/KycModel');
 const MaintenanceModel = require('./models/MaintenanceModel');
@@ -134,6 +135,7 @@ app.use('/maintenance', maintenanceRoutes);
 app.post('/payments/webhook', paymentController.handleWebhook,express.raw({ type: 'application/json' }));
 app.use('/payments', paymentRoutes);
 app.use('/visits', visitRoutes);
+app.use('/push', pushRoutes);
 
 // === Manejo de errores ===
 app.use((_, res) => res.status(404).json({ error: 'Endpoint no encontrado' }));
@@ -210,6 +212,33 @@ io.on("connection", (socket) => {
             const receptorSocketId = userSockets.get(String(receptor_id));
             if (receptorSocketId) {
                 io.to(receptorSocketId).emit("nuevo_mensaje", nuevoMensaje);
+            } else {
+                // Si el receptor no está conectado, enviar push notification
+                try {
+                    const pushService = require('./services/pushService');
+                    const db = require('./config/db');
+                    db.execute(
+                        'SELECT user_name, user_lastname FROM users WHERE user_id = ?',
+                        [emisor_id]
+                    ).then(([rows]) => {
+                        const senderName = rows.length > 0
+                            ? `${rows[0].user_name} ${rows[0].user_lastname}`
+                            : 'Alguien';
+                        const preview = contenido.length > 100
+                            ? contenido.substring(0, 100) + '...'
+                            : contenido;
+                        pushService.sendToUser(receptor_id, {
+                            title: `Nuevo mensaje de ${senderName}`,
+                            body: preview,
+                            url: '/my-account',
+                            type: 'new_message',
+                            referenceId: receptor_id,
+                            referenceType: 'chat',
+                        }).catch(e => console.error('Error push mensaje:', e.message));
+                    }).catch(e => console.error('Error obteniendo nombre emisor:', e.message));
+                } catch (pushErr) {
+                    console.error('Error push notif mensaje:', pushErr.message);
+                }
             }
 
             // Emitir también al emisor (si tiene otra pestaña/cliente abierta)
@@ -253,6 +282,8 @@ module.exports.emitAdminNotification = emitAdminNotification;
             await KycModel.init();
             await MaintenanceModel.init();
             await VisitModel.init();
+            const PushSubscriptionModel = require('./models/PushSubscriptionModel');
+            await PushSubscriptionModel.init();
             console.log('✅ Modelos inicializados');
         } catch (modelErr) {
             console.warn('⚠️ Advertencia inicializando modelos:', modelErr.message);
@@ -345,7 +376,16 @@ module.exports.emitAdminNotification = emitAdminNotification;
             console.warn('⚠️ Advertencia al expirar contratos:', expErr.message);
         }
 
-        // 5c. Analizar reseñas pendientes con IA (transformers.js)
+        // 5c. Inicializar servicio de notificaciones push
+        try {
+            const pushService = require('./services/pushService');
+            pushService.init();
+            console.log('✅ Servicio de notificaciones push activo');
+        } catch (pushErr) {
+            console.warn('⚠️ Advertencia iniciando push service:', pushErr.message);
+        }
+
+        // 5d. Analizar reseñas pendientes con IA (transformers.js)
         try {
             console.log('Verificando reseñas pendientes para análisis con IA...');
             const { analyzePendingReviews } = require('./services/sentimentAnalysis');

@@ -555,8 +555,38 @@ class Contract {
                     } catch (emailErr) {
                         console.warn('Error enviando email de expiracion:', emailErr.message);
                     }
+
+                    // Notificación push al inquilino
+                    try {
+                        const pushService = require('../services/pushService');
+                        const [landlordRows] = await connection.query(
+                            'SELECT user_id FROM rental_agreements WHERE agreement_id = ?',
+                            [contract.agreement_id]
+                        );
+                        pushService.sendToUser(contract.tenant_id, {
+                            title: 'Contrato vencido',
+                            body: `Tu contrato de arrendamiento en ${contract.direccion_apt} ha vencido. Renueva tu contrato o contacta a tu arrendador.`,
+                            url: '/mis-arriendos',
+                            type: 'contract_expired',
+                            referenceId: contract.agreement_id,
+                            referenceType: 'contract',
+                        }).catch(e => console.error('Error push expiracion tenant:', e.message));
+
+                        if (landlordRows.length > 0) {
+                            pushService.sendToUser(landlordRows[0].user_id, {
+                                title: 'Contrato vencido',
+                                body: `El contrato de arrendamiento en ${contract.direccion_apt} ha vencido. Revisa los detalles.`,
+                                url: '/dashboard',
+                                type: 'contract_expired',
+                                referenceId: contract.agreement_id,
+                                referenceType: 'contract',
+                            }).catch(e => console.error('Error push expiracion landlord:', e.message));
+                        }
+                    } catch (pushErr) {
+                        console.warn('Error enviando push de expiracion:', pushErr.message);
+                    }
                 }
-                console.log(`Expired ${expiredContracts.length} contracts automatically (emails sent, grace period started)`);
+                console.log(`Expired ${expiredContracts.length} contracts automatically (emails sent, push sent, grace period started)`);
             }
 
             await connection.commit();
