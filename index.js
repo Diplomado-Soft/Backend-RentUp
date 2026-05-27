@@ -105,6 +105,7 @@ const notificationRoutes = require('./routes/notificationRoutes');
 const geolocationRoutes = require('./routes/geolocationRoutes');
 const kycRoutes = require('./routes/kycRoutes');
 const maintenanceRoutes = require('./routes/maintenanceRoutes');
+const visitRoutes = require('./routes/visitRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
 const visitRoutes = require('./routes/visitRoutes');
 const pushRoutes = require('./routes/pushRoutes');
@@ -131,6 +132,7 @@ app.use('/admin/users', adminUserRoutes);
 app.use('/geolocation', geolocationRoutes);
 app.use('/kyc', kycRoutes);
 app.use('/maintenance', maintenanceRoutes);
+app.use('/visits', visitRoutes);
 // Webhook de Stripe (body crudo, sin JSON parse)
 app.post('/payments/webhook', paymentController.handleWebhook,express.raw({ type: 'application/json' }));
 app.use('/payments', paymentRoutes);
@@ -304,6 +306,51 @@ module.exports.emitAdminNotification = emitAdminNotification;
             console.warn('⚠️ Advertencia inicializando modelos:', modelErr.message);
         }
 
+        // 2e. Ejecutar migración de visitas
+        try {
+            const db = require('./config/db');
+            const fs = require('fs');
+            const path = require('path');
+            const migrationPath = path.join(__dirname, 'migrations', '002_create_visits_table.sql');
+            if (fs.existsSync(migrationPath)) {
+                const sql = fs.readFileSync(migrationPath, 'utf8');
+                await db.query(sql);
+                console.log('✅ Migración de visitas ejecutada');
+            }
+        } catch (modelErr) {
+            console.warn('⚠️ Advertencia en migración de visitas:', modelErr.message);
+        }
+
+        // 2f. Ejecutar migración de signed_at en contratos
+        try {
+            const db = require('./config/db');
+            const fs = require('fs');
+            const path = require('path');
+            const migrationPath = path.join(__dirname, 'migrations', '003_add_signed_at_to_contracts.sql');
+            if (fs.existsSync(migrationPath)) {
+                const sql = fs.readFileSync(migrationPath, 'utf8');
+                await db.query(sql);
+                console.log('✅ Migración de signed_at ejecutada');
+            }
+        } catch (modelErr) {
+            console.warn('⚠️ Advertencia en migración de signed_at:', modelErr.message);
+        }
+
+        // 2g. Ejecutar migración de status ENUM para firmas
+        try {
+            const db = require('./config/db');
+            const fs = require('fs');
+            const path = require('path');
+            const migrationPath = path.join(__dirname, 'migrations', '004_add_signed_to_contract_status.sql');
+            if (fs.existsSync(migrationPath)) {
+                const sql = fs.readFileSync(migrationPath, 'utf8');
+                await db.query(sql);
+                console.log('✅ Migración de status ENUM ejecutada');
+            }
+        } catch (modelErr) {
+            console.warn('⚠️ Advertencia en migración de status ENUM:', modelErr.message);
+        }
+
         // 2d. Cargar configuración de geolocalización
         try {
             console.log('Cargando configuración de geolocalización...');
@@ -389,7 +436,10 @@ module.exports.emitAdminNotification = emitAdminNotification;
         try {
             console.log('Verificando reseñas pendientes para análisis con IA...');
             const { analyzePendingReviews } = require('./services/sentimentAnalysis');
-            const result = await analyzePendingReviews({ batchSize: 30, delay: 800 });
+            const result = await Promise.race([
+                analyzePendingReviews({ batchSize: 30, delay: 800 }),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout: análisis de reseñas muy lento, se omitirá en este arranque')), 15000))
+            ]);
             
             if (result.success && result.analyzed > 0) {
                 console.log(`Se analizaron ${result.analyzed} reseñas con IA`);
