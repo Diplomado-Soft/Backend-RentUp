@@ -19,12 +19,15 @@ const isAdmin = (req, res, next) => {
 router.post('/upload',
     authMiddleware,
     isLandlord,
-    upload.fields([
-        { name: 'id_document', maxCount: 1 },
-        { name: 'property_certificate', maxCount: 1 }
-    ]),
+    upload.single('id_document'),
     processKycDocuments,
     KycController.uploadDocuments
+);
+
+router.post('/refresh-url',
+    authMiddleware,
+    isAdmin,
+    KycController.refreshDocumentUrl
 );
 
 router.get('/my-status',

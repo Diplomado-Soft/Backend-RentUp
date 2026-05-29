@@ -6,7 +6,9 @@ class User {
         try {
             const [results] = await db.query(
                 `SELECT users.user_id, users.user_name, users.user_lastname, 
-                        users.user_email, users.user_phonenumber, users.whatsapp, 
+                        users.user_email, users.user_phonenumber, users.whatsapp,
+                        users.id_document_url, users.id_document_key,
+                        users.estadoVerificacion, users.notasRevision,
                         user_rol.rol_id
                     FROM users
                     INNER JOIN user_rol ON users.user_id = user_rol.user_id
@@ -74,8 +76,8 @@ class User {
             // Al registrarse, el whatsapp suele ser el mismo teléfono inicialmente
             const [userResult] = await connection.query(
                 `INSERT INTO users 
-                (user_name, user_lastname, user_email, user_phonenumber, whatsapp, user_password)
-                VALUES (?, ?, ?, ?, ?, ?)`,
+                (user_name, user_lastname, user_email, user_phonenumber, whatsapp, user_password, estadoVerificacion)
+                VALUES (?, ?, ?, ?, ?, ?, 'pendiente')`,
                 [nombre, apellido, email, telefono, telefono, hashedPassword]
             );
 
@@ -89,7 +91,8 @@ class User {
             return {
                 user_id: userResult.insertId,
                 user_email: email,
-                rol_id: rolId
+                rol_id: rolId,
+                estadoVerificacion: 'pendiente'
             };
 
         } catch (error) {
@@ -109,6 +112,9 @@ class User {
                     WHERE users.user_email = ?`,
                 [email]
             );
+            if (results[0] && results[0].notasRevision === undefined) {
+                results[0].notasRevision = null;
+            }
             return results[0] || null;
         } catch (error) {
             throw new Error('Error al buscar usuario por email');
@@ -129,6 +135,13 @@ class User {
             [userId]
         );
         return true;
+    }
+
+    static async updateCedula(userId, url, key) {
+        await db.execute(
+            `UPDATE users SET id_document_url = ?, id_document_key = ? WHERE user_id = ?`,
+            [url, key, userId]
+        );
     }
 }
 

@@ -13,8 +13,6 @@ class KycModel {
                     apartment_id INT,
                     id_document_url VARCHAR(500),
                     id_document_key VARCHAR(500),
-                    property_certificate_url VARCHAR(500),
-                    property_certificate_key VARCHAR(500),
                     status ENUM('pending', 'approved', 'rejected') DEFAULT 'pending',
                     admin_notes TEXT,
                     reviewed_by INT,
@@ -36,15 +34,15 @@ class KycModel {
         await this.ensureTable();
     }
 
-    static async createVerification({ userId, apartmentId, idDocumentUrl, idDocumentKey, certUrl, certKey }) {
+    static async createVerification({ userId, apartmentId, idDocumentUrl, idDocumentKey }) {
         const connection = await db.getConnection();
         try {
             await connection.beginTransaction();
 
             const [existing] = await connection.query(
                 `SELECT id, status FROM landlord_verification
-                 WHERE user_id = ? AND apartment_id = ? AND status = 'pending'`,
-                [userId, apartmentId]
+                 WHERE user_id = ? AND status = 'pending'`,
+                [userId]
             );
 
             if (existing.length > 0) {
@@ -52,14 +50,12 @@ class KycModel {
                     `UPDATE landlord_verification
                      SET id_document_url = COALESCE(?, id_document_url),
                          id_document_key = COALESCE(?, id_document_key),
-                         property_certificate_url = COALESCE(?, property_certificate_url),
-                         property_certificate_key = COALESCE(?, property_certificate_key),
                          status = 'pending',
                          admin_notes = NULL,
                          reviewed_by = NULL,
                          reviewed_at = NULL
                      WHERE id = ?`,
-                    [idDocumentUrl, idDocumentKey, certUrl, certKey, existing[0].id]
+                    [idDocumentUrl, idDocumentKey, existing[0].id]
                 );
                 await connection.commit();
                 return { id: existing[0].id, isUpdate: true };
@@ -67,9 +63,9 @@ class KycModel {
 
             const [result] = await connection.query(
                 `INSERT INTO landlord_verification
-                 (user_id, apartment_id, id_document_url, id_document_key, property_certificate_url, property_certificate_key, status)
-                 VALUES (?, ?, ?, ?, ?, ?, 'pending')`,
-                [userId, apartmentId, idDocumentUrl, idDocumentKey, certUrl, certKey]
+                 (user_id, id_document_url, id_document_key, status)
+                 VALUES (?, ?, ?, 'pending')`,
+                [userId, idDocumentUrl, idDocumentKey]
             );
 
             await connection.commit();
@@ -102,6 +98,7 @@ class KycModel {
                 `SELECT
                     lv.*,
                     u.user_name, u.user_lastname, u.user_email, u.user_phonenumber,
+                    u.estadoVerificacion,
                     a.direccion_apt, a.price, a.publication_status,
                     b.barrio as barrio_nombre
                 FROM landlord_verification lv
@@ -221,6 +218,12 @@ class KycModel {
                  SET status = 'approved', reviewed_by = ?, reviewed_at = NOW(), admin_notes = ?
                  WHERE id = ?`,
                 [adminId, notes || 'Verificación aprobada', verificationId]
+            );
+
+            // También actualizar el estado de verificación del usuario a aprobado
+            await connection.query(
+                `UPDATE users SET estadoVerificacion = 'aprobado' WHERE user_id = ?`,
+                [landlordId]
             );
 
             if (apartmentId) {

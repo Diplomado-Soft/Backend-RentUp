@@ -137,7 +137,7 @@ exports.isUrlExpired = (expiresAt) => {
  * Subir documento (PDF/imagen) a IDrive e2 para KYC
  * @param {Buffer} fileBuffer - Buffer del archivo
  * @param {string} userId - ID del usuario
- * @param {string} docType - Tipo de documento ('id_document' | 'property_certificate')
+ * @param {string} docType - Tipo de documento ('id_document')
  * @param {string} originalName - Nombre original del archivo
  * @param {string} mimeType - Tipo MIME del archivo
  * @returns {Promise<{key: string, signedUrl: string, expiresAt: Date}>}

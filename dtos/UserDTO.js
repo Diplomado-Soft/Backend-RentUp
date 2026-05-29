@@ -15,6 +15,9 @@ class UserDTO {
         this.profile_image = user.profile_image || null;
         this.phone_confirmed = user.phone_confirmed || false;
         this.is_verified = !!user.is_verified;
+        this.id_document_url = user.id_document_url || null;
+        this.estadoVerificacion = user.estadoVerificacion || 'pendiente';
+        this.notasRevision = user.notasRevision || null;
     }
 
     static fromDatabase(user) {

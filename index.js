@@ -107,7 +107,6 @@ const kycRoutes = require('./routes/kycRoutes');
 const maintenanceRoutes = require('./routes/maintenanceRoutes');
 const visitRoutes = require('./routes/visitRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
-const visitRoutes = require('./routes/visitRoutes');
 const pushRoutes = require('./routes/pushRoutes');
 const paymentController = require('./controllers/paymentController');
 const KycModel = require('./models/KycModel');
@@ -132,7 +131,6 @@ app.use('/admin/users', adminUserRoutes);
 app.use('/geolocation', geolocationRoutes);
 app.use('/kyc', kycRoutes);
 app.use('/maintenance', maintenanceRoutes);
-app.use('/visits', visitRoutes);
 // Webhook de Stripe (body crudo, sin JSON parse)
 app.post('/payments/webhook', paymentController.handleWebhook,express.raw({ type: 'application/json' }));
 app.use('/payments', paymentRoutes);
@@ -349,6 +347,66 @@ module.exports.emitAdminNotification = emitAdminNotification;
             }
         } catch (modelErr) {
             console.warn('⚠️ Advertencia en migración de status ENUM:', modelErr.message);
+        }
+
+        // 2h. Ejecutar migración de cédula en users
+        try {
+            const db = require('./config/db');
+            const fs = require('fs');
+            const path = require('path');
+            const migrationPath = path.join(__dirname, 'migrations', '005_add_cedula_to_users.sql');
+            if (fs.existsSync(migrationPath)) {
+                const sql = fs.readFileSync(migrationPath, 'utf8');
+                await db.query(sql);
+                console.log('✅ Migración de cédula en users ejecutada');
+            }
+        } catch (modelErr) {
+            console.warn('⚠️ Advertencia en migración de cédula:', modelErr.message);
+        }
+
+        // 2i. Ejecutar migración de drop property_certificate
+        try {
+            const db = require('./config/db');
+            const fs = require('fs');
+            const path = require('path');
+            const migrationPath = path.join(__dirname, 'migrations', '006_drop_property_certificate_from_kyc.sql');
+            if (fs.existsSync(migrationPath)) {
+                const sql = fs.readFileSync(migrationPath, 'utf8');
+                await db.query(sql);
+                console.log('✅ Migración de drop property_certificate ejecutada');
+            }
+        } catch (modelErr) {
+            console.warn('⚠️ Advertencia en migración de property_certificate:', modelErr.message);
+        }
+
+        // 2j. Ejecutar migración de estadoVerificacion
+        try {
+            const db = require('./config/db');
+            const fs = require('fs');
+            const path = require('path');
+            const migrationPath = path.join(__dirname, 'migrations', '007_add_estado_verificacion_to_users.sql');
+            if (fs.existsSync(migrationPath)) {
+                const sql = fs.readFileSync(migrationPath, 'utf8');
+                await db.query(sql);
+                console.log('✅ Migración de estadoVerificacion ejecutada');
+            }
+        } catch (modelErr) {
+            console.warn('⚠️ Advertencia en migración de estadoVerificacion:', modelErr.message);
+        }
+
+        // 2k. Ejecutar migración de notasRevision
+        try {
+            const db = require('./config/db');
+            const fs = require('fs');
+            const path = require('path');
+            const migrationPath = path.join(__dirname, 'migrations', '008_add_notas_revision_to_users.sql');
+            if (fs.existsSync(migrationPath)) {
+                const sql = fs.readFileSync(migrationPath, 'utf8');
+                await db.query(sql);
+                console.log('✅ Migración de notasRevision ejecutada');
+            }
+        } catch (modelErr) {
+            console.warn('⚠️ Advertencia en migración de notasRevision:', modelErr.message);
         }
 
         // 2d. Cargar configuración de geolocalización

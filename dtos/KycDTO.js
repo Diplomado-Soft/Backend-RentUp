@@ -4,7 +4,7 @@ class KycDTO {
         this.user_id = verification.user_id;
         this.apartment_id = verification.apartment_id;
         this.id_document_url = verification.id_document_url;
-        this.property_certificate_url = verification.property_certificate_url;
+        this.id_document_key = verification.id_document_key;
         this.status = verification.status;
         this.admin_notes = verification.admin_notes;
         this.reviewed_by = verification.reviewed_by;
