@@ -1,5 +1,6 @@
 const KycModel = require('../models/KycModel');
 const { KycDTO } = require('../dtos');
+const idriveService = require('../utils/idriveService');
 
 class KycController {
 
@@ -20,9 +21,7 @@ class KycController {
                 userId,
                 apartmentId: apartment_id,
                 idDocumentUrl: req.kycDocuments.id_document?.url || null,
-                idDocumentKey: req.kycDocuments.id_document?.key || null,
-                certUrl: req.kycDocuments.property_certificate?.url || null,
-                certKey: req.kycDocuments.property_certificate?.key || null
+                idDocumentKey: req.kycDocuments.id_document?.key || null
             });
 
             return res.status(200).json({
@@ -150,6 +149,43 @@ class KycController {
             return res.status(500).json({
                 success: false,
                 error: 'Error al aprobar verificación',
+                details: error.message
+            });
+        }
+    }
+
+    static async refreshDocumentUrl(req, res) {
+        try {
+            const { key } = req.body;
+
+            if (!key) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'La clave del documento es requerida'
+                });
+            }
+
+            const result = await idriveService.getSignedUrl(key);
+
+            if (!result) {
+                return res.status(500).json({
+                    success: false,
+                    error: 'No se pudo refrescar la URL del documento'
+                });
+            }
+
+            return res.status(200).json({
+                success: true,
+                data: {
+                    signedUrl: result.signedUrl,
+                    expiresAt: result.expiresAt
+                }
+            });
+        } catch (error) {
+            console.error('Error refrescando URL del documento:', error);
+            return res.status(500).json({
+                success: false,
+                error: 'Error al refrescar la URL del documento',
                 details: error.message
             });
         }

@@ -5,6 +5,8 @@ const { generateToken } = require('../utils/auth');
 const { sendWelcomeEmail, sendUserBlockEmail, sendEmailAccountDelete } = require('../utils/emailService');
 const { CreateUserDTO, UpdateUserDTO, UserDTO } = require('../dtos');
 const db = require('../config/db');
+const idriveService = require('../utils/idriveService');
+const NotificationModel = require('./../models/NotificationModel');
 require('dotenv').config();
 
 exports.getUserData = async (req, res) => {
@@ -102,6 +104,13 @@ exports.signup = async (req, res) => {
 
         const dtoData = userDTO.toDatabaseFormat();
 
+        // Si es arrendador, la cédula es obligatoria
+        if (dtoData.rolId === 2 && !req.file) {
+            return res.status(400).json({
+                error: 'Para registrarse como arrendador debe subir una foto de su cédula de identidad'
+            });
+        }
+
         // Verificar si el usuario ya existe
         const existingUser = await User.findByEmail(dtoData.email);
         if (existingUser) {
@@ -110,6 +119,39 @@ exports.signup = async (req, res) => {
         
         // Crear usuario en la db
         const newUser = await User.signup(dtoData);
+
+        // Si es arrendador y subió cédula, procesarla
+        if (dtoData.rolId === 2 && req.file) {
+            try {
+                const uploadResult = await idriveService.uploadDocument(
+                    req.file.buffer,
+                    newUser.user_id,
+                    'id_document',
+                    req.file.originalname,
+                    req.file.mimetype
+                );
+                await User.updateCedula(newUser.user_id, uploadResult.signedUrl, uploadResult.key);
+                console.log(`✅ Cédula subida para usuario ${newUser.user_id}`);
+
+                // Llamar al servicio de IA para verificar la cédula
+                const aiVerificationService = require('../services/aiVerificationService');
+                const aiResult = await aiVerificationService.analyzeIdDocument(uploadResult.signedUrl);
+                console.log(`🤖 Resultado de IA para usuario ${newUser.user_id}:`, aiResult);
+
+                // Si la IA aprueba con alta confianza, actualizar estado a aprobado
+                if (aiResult.esValido && aiResult.confianza > 0.9) {
+                    await db.execute(
+                        `UPDATE users SET estadoVerificacion = 'aprobado' WHERE user_id = ?`,
+                        [newUser.user_id]
+                    );
+                    console.log(`✅ Usuario ${newUser.user_id} aprobado automáticamente por IA (confianza: ${aiResult.confianza})`);
+                } else {
+                    console.log(`⏳ Usuario ${newUser.user_id} queda en pendiente (confianza: ${aiResult.confianza})`);
+                }
+            } catch (uploadErr) {
+                console.error('⚠️ Error subiendo cédula (no bloquea registro):', uploadErr.message);
+            }
+        }
 
         // Enviar correo de bienvenida (no bloquea el registro si falla)
         sendWelcomeEmail(dtoData.email, dtoData.nombre, dtoData.apellido).catch(err =>
@@ -128,13 +170,16 @@ exports.signup = async (req, res) => {
             {expiresIn: '7d'}
         )
 
+        const newUserData = {
+            id: newUser.user_id,
+            email: newUser.user_email,
+            rol: newUser.rol_id,
+            estadoVerificacion: newUser.estadoVerificacion || 'pendiente'
+        };
+
         res.status(201).json({
             message: 'Usuario registrado exitosamente',
-            user: {
-                id: newUser.user_id,
-                email: newUser.user_email,
-                rol: newUser.rol_id
-            },
+            user: newUserData,
             token,
             refreshToken
         });
@@ -198,14 +243,14 @@ exports.login = async (req, res) => {
             rol: user.rol_id
         });
 
-        // Excluir información sensible
         const userData = {
             id: user.user_id,
             nombre: user.user_name,
             apellido: user.user_lastname,
             email: user.user_email,
             telefono: user.user_phonenumber,
-            rol: user.rol_id
+            rol: user.rol_id,
+            estadoVerificacion: user.estadoVerificacion || 'pendiente'
         };
 
         const refreshToken = jwt.sign(
@@ -364,17 +409,97 @@ exports.deleteAccount = async (req, res) => {
 };
 
 /**
+ * Verificar o rechazar usuario (solo admin)
+ * PUT /admin/users/:id/verificar
+ */
+exports.verifyUser = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { estado, notas = '' } = req.body;
+        const adminId = req.user.id;
+
+        if (!id) {
+            return res.status(400).json({ success: false, error: 'ID de usuario requerido' });
+        }
+
+        if (!estado || !['aprobado', 'rechazado'].includes(estado)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Estado inválido. Use "aprobado" o "rechazado"'
+            });
+        }
+
+        if (estado === 'rechazado' && !notas.trim()) {
+            return res.status(400).json({
+                success: false,
+                error: 'Debe proporcionar un motivo para el rechazo'
+            });
+        }
+
+        // Verificar que el usuario existe
+        const [userRows] = await db.query(
+            'SELECT user_id, user_name, user_lastname, user_email, user_phonenumber, estadoVerificacion FROM users WHERE user_id = ?',
+            [id]
+        );
+
+        if (userRows.length === 0) {
+            return res.status(404).json({ success: false, error: 'Usuario no encontrado' });
+        }
+
+        const user = userRows[0];
+
+        // Actualizar estado de verificación
+        await db.execute(
+            `UPDATE users SET estadoVerificacion = ?, notasRevision = ? WHERE user_id = ?`,
+            [estado, notas || null, id]
+        );
+
+        console.log(`🔵 Admin ${adminId} ${estado === 'aprobado' ? 'aprobó' : 'rechazó'} verificación de usuario ${id}`);
+
+        // Notificar al usuario
+        try {
+            await NotificationModel.createForUser(id, {
+                type: estado === 'aprobado' ? 'verification_approved' : 'verification_rejected',
+                title: estado === 'aprobado' ? 'Verificación aprobada' : 'Verificación rechazada',
+                message: estado === 'aprobado'
+                    ? 'Tu cuenta ha sido verificada exitosamente. Ya puedes publicar propiedades.'
+                    : `Tu verificación ha sido rechazada. Motivo: ${notas || 'No especificado'}`,
+                reference_id: id,
+                reference_type: 'user_verification'
+            });
+        } catch (notifErr) {
+            console.error('Error notificando al usuario:', notifErr.message);
+        }
+
+        return res.json({
+            success: true,
+            message: `Usuario ${estado === 'aprobado' ? 'aprobado' : 'rechazado'} correctamente`,
+            data: {
+                user_id: id,
+                estadoVerificacion: estado,
+                notasRevision: notas || null
+            }
+        });
+    } catch (error) {
+        console.error('Error verificando usuario:', error);
+        return res.status(500).json({ success: false, error: 'Error al verificar usuario' });
+    }
+};
+
+/**
  * Obtener lista de usuarios (solo admin)
  * GET /admin/users?limit=50&offset=0&search=&role=
  */
 exports.getUsers = async (req, res) => {
     try {
-        const { limit = 50, offset = 0, search = '', role = '' } = req.query;
+        const { limit = 50, offset = 0, search = '', role = '', estado = '' } = req.query;
         console.log('getUsers - Params recibidos:', { limit, offset, search, role });
         
         let query = `
             SELECT u.user_id, u.user_name, u.user_lastname, u.user_email, 
                    u.user_phonenumber, u.is_active, u.created_at,
+                   u.estadoVerificacion, u.notasRevision,
+                   u.id_document_url, u.id_document_key,
                    MAX(r.rol_id) AS rol_id
             FROM users u
         `;
@@ -401,6 +526,14 @@ exports.getUsers = async (req, res) => {
                 params.push(parseInt(role));
             }
         }
+        if (estado) {
+            const validStates = ['pendiente', 'aprobado', 'rechazado'];
+            if (validStates.includes(estado)) {
+                query += ` AND u.estadoVerificacion = ?`;
+                params.push(estado);
+            }
+        }
+
         
         query += ` GROUP BY u.user_id ORDER BY u.created_at DESC LIMIT ? OFFSET ?`;
         params.push(parseInt(limit), parseInt(offset));
@@ -426,6 +559,13 @@ exports.getUsers = async (req, res) => {
             } else {
                 countQuery += ` AND r.rol_id = ?`;
                 countParams.push(parseInt(role));
+            }
+        }
+        if (estado) {
+            const validStates = ['pendiente', 'aprobado', 'rechazado'];
+            if (validStates.includes(estado)) {
+                countQuery += ` AND u.estadoVerificacion = ?`;
+                countParams.push(estado);
             }
         }
         console.log('getUsers countQuery:', countQuery);

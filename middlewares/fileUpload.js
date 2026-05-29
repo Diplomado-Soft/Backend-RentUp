@@ -36,7 +36,7 @@ exports.validateFiles = async (req, res, next) => {
     const files = Array.isArray(raw) ? raw : Object.values(raw).flat();
     if (files.length === 0) return next();
 
-    const kycFieldNames = new Set(['id_document', 'property_certificate']);
+    const kycFieldNames = new Set(['id_document']);
 
     try {
         req.processedFiles = [];
@@ -50,7 +50,7 @@ exports.validateFiles = async (req, res, next) => {
         for (const file of files) {
             const fieldName = file.fieldname;
 
-            // ============ KYC DOCUMENTS (id_document, property_certificate) ============
+            // ============ KYC DOCUMENTS (id_document) ============
             if (kycFieldNames.has(fieldName)) {
                 if (!ALLOWED_KYC_MIMES.has(file.mimetype)) {
                     throw new Error(`Tipo de archivo no permitido para ${fieldName}: ${file.originalname}. Solo JPG, PNG y PDF`);

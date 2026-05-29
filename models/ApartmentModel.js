@@ -248,7 +248,7 @@ class Apartment {
         processedResults.forEach(apt => {
             const kyc = kycMap[apt.id_apt];
             apt.id_document_url = kyc?.id_document_url || null;
-            apt.property_certificate_url = kyc?.property_certificate_url || null;
+            apt.id_document_key = kyc?.id_document_key || null;
             apt.kyc_status = kyc?.status || null;
         });
 
@@ -458,7 +458,7 @@ class Apartment {
             const kycMap = await this.getKycByApartmentIds([id]);
             const kyc = kycMap[id];
             apt.id_document_url = kyc?.id_document_url || null;
-            apt.property_certificate_url = kyc?.property_certificate_url || null;
+            apt.id_document_key = kyc?.id_document_key || null;
             apt.kyc_status = kyc?.status || null;
 
             return apt;
@@ -528,9 +528,9 @@ class Apartment {
             const kycMap = await this.getKycByApartmentIds(aptIds);
             results.forEach(apt => {
                 const kyc = kycMap[apt.id_apt];
-                apt.id_document_url = kyc?.id_document_url || null;
-                apt.property_certificate_url = kyc?.property_certificate_url || null;
-                apt.kyc_status = kyc?.status || null;
+            apt.id_document_url = kyc?.id_document_url || null;
+            apt.id_document_key = kyc?.id_document_key || null;
+            apt.kyc_status = kyc?.status || null;
             });
 
             const [countResult] = await connection.query(

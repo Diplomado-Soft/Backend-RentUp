@@ -27,4 +27,7 @@ router.put('/:id/block', userController.blockUser);
 // Desbloquear usuario
 router.put('/:id/unblock', userController.unblockUser);
 
+// Verificar usuario (aprobar/rechazar)
+router.put('/:id/verificar', userController.verifyUser);
+
 module.exports = router;
