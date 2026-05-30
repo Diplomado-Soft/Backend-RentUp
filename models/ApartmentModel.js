@@ -98,6 +98,21 @@ class Apartment {
         }
     }
 
+    static async getBasicInfo(id_apt) {
+        return await db.query(
+            'SELECT id_apt, publication_status, status FROM apartments WHERE id_apt = ?',
+            [id_apt]
+        );
+    }
+
+    static async hasActiveContracts(id_apt) {
+        const [rows] = await db.query(
+            `SELECT COUNT(*) as count FROM rental_agreements WHERE property_id = ? AND status = 'active'`,
+            [id_apt]
+        );
+        return rows[0]?.count > 0;
+    }
+
     static async updateApartment(id_apt, data) {
         const connection = await db.getConnection();
         try {
@@ -116,12 +131,12 @@ class Apartment {
                 [data.barrio]
             );
 
-            // 2. Verificar si el apto estaba rechazado (para auto-resubmit)
+            // 2. Verificar si el apto estaba rechazado o aprobado (para auto-resubmit)
             const [pubRows] = await connection.query(
                 'SELECT publication_status FROM apartments WHERE id_apt = ?',
                 [id_apt]
             );
-            const wasRejected = pubRows[0]?.publication_status === 'rejected';
+            const needsResubmit = pubRows[0]?.publication_status === 'rejected' || pubRows[0]?.publication_status === 'approved';
 
             // 3. Actualizar los datos del apartamento
             const setFields = [
@@ -130,6 +145,10 @@ class Apartment {
                 'latitud_apt = ?',
                 'longitud_apt = ?',
                 'info_add_apt = ?',
+                'price = ?',
+                'bedrooms = ?',
+                'bathrooms = ?',
+                'area_m2 = ?',
                 'comodidades = ?',
                 'updated_date = NOW()'
             ];
@@ -139,10 +158,14 @@ class Apartment {
                 data.latitud_apt,
                 data.longitud_apt,
                 data.info_add_apt || null,
-                data.comodidades || null
+                data.price ?? null,
+                data.bedrooms ?? null,
+                data.bathrooms ?? null,
+                data.area_m2 ?? null,
+                data.comodidades ?? null
             ];
 
-            if (wasRejected) {
+            if (needsResubmit) {
                 setFields.push('publication_status = ?', 'admin_notes = ?');
                 setValues.push('pending', null);
             }
@@ -152,11 +175,12 @@ class Apartment {
                 [...setValues, id_apt]
             );
 
-            if (wasRejected) {
+            if (needsResubmit) {
+                const prevStatus = pubRows[0]?.publication_status || 'rejected';
                 await connection.query(
                     `INSERT INTO apartment_approval_history (id_apt, admin_id, old_status, new_status, notes, action_date)
-                     VALUES (?, NULL, 'rejected', 'pending', 'Reenviado por el arrendador al editar', NOW())`,
-                    [id_apt]
+                     VALUES (?, NULL, ?, 'pending', 'Reenviado por el arrendador al editar', NOW())`,
+                    [id_apt, prevStatus]
                 );
             }
 

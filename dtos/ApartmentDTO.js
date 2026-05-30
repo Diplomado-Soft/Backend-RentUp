@@ -127,6 +127,11 @@ class UpdateApartmentDTO {
         this.latitud_apt = data.latitud_apt ? parseFloat(data.latitud_apt) : null;
         this.longitud_apt = data.longitud_apt ? parseFloat(data.longitud_apt) : null;
         this.info_add_apt = data.info_add_apt;
+        this.price = data.price ? parseFloat(data.price) : null;
+        this.bedrooms = data.bedrooms ? parseInt(data.bedrooms) : null;
+        this.bathrooms = data.bathrooms ? parseInt(data.bathrooms) : null;
+        this.area_m2 = data.area_m2 ? parseFloat(data.area_m2) : null;
+        this.comodidades = data.comodidades || '';
         this.existing_images = data.existing_images || [];
     }
 
@@ -152,6 +157,22 @@ class UpdateApartmentDTO {
             errors.push('Longitud inválida');
         }
 
+        if (this.price && (isNaN(this.price) || this.price <= 0)) {
+            errors.push('Precio debe ser un número mayor a 0');
+        }
+
+        if (this.bedrooms && (isNaN(this.bedrooms) || this.bedrooms < 0)) {
+            errors.push('Número de habitaciones inválido');
+        }
+
+        if (this.bathrooms && (isNaN(this.bathrooms) || this.bathrooms < 0)) {
+            errors.push('Número de baños inválido');
+        }
+
+        if (this.area_m2 && (isNaN(this.area_m2) || this.area_m2 <= 0)) {
+            errors.push('Área debe ser un número mayor a 0');
+        }
+
         return {
             isValid: errors.length === 0,
             errors
@@ -165,6 +186,11 @@ class UpdateApartmentDTO {
             latitud_apt: this.latitud_apt,
             longitud_apt: this.longitud_apt,
             info_add_apt: this.info_add_apt,
+            price: this.price,
+            bedrooms: this.bedrooms,
+            bathrooms: this.bathrooms,
+            area_m2: this.area_m2,
+            comodidades: this.comodidades,
             existing_images: this.existing_images
         };
     }
