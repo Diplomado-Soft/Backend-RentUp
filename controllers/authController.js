@@ -344,7 +344,7 @@ const forgotPassword = async (req, res) => {
         );
         
         if (userRows.length === 0) {
-            return res.status(400).json({ error: 'Email no registrado o código inválido' });
+            return res.json({ success: true, method: 'email', message: 'Si el email está registrado, recibirás instrucciones' });
         }
         
         const user = userRows[0];
@@ -413,8 +413,20 @@ const forgotPassword = async (req, res) => {
  * POST /auth/reset-password
  * Restablecer contraseña con código (6 dígitos)
  */
-// Rate limiter para reset-password
+// Rate limiter en memoria para reset-password
+// NOTA: Almacenado en memoria volátil — se pierde al reiniciar el servidor.
+// Para producción con múltiples instancias, migrar a Redis o base de datos.
 const resetPasswordAttempts = new Map();
+
+setInterval(() => {
+    const oneHourMs = 60 * 60 * 1000;
+    const now = Date.now();
+    for (const [ip, data] of resetPasswordAttempts.entries()) {
+        if (now - data.firstAttempt > oneHourMs) {
+            resetPasswordAttempts.delete(ip);
+        }
+    }
+}, 60 * 60 * 1000);
 
 const resetPassword = async (req, res) => {
     try {

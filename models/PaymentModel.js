@@ -51,7 +51,7 @@ class Payment {
             LEFT JOIN apartments a ON ra.property_id = a.id_apt
             LEFT JOIN barrio b ON a.id_barrio = b.id_barrio
             LEFT JOIN users landlord ON p.landlord_id = landlord.user_id
-            WHERE p.tenant_id = ?
+            WHERE p.tenant_id = ? AND p.vistainquilino = 'activo'
             ORDER BY p.created_at DESC`,
             [tenantId]
         );
@@ -69,7 +69,7 @@ class Payment {
             LEFT JOIN apartments a ON ra.property_id = a.id_apt
             LEFT JOIN barrio b ON a.id_barrio = b.id_barrio
             LEFT JOIN users tenant ON p.tenant_id = tenant.user_id
-            WHERE p.landlord_id = ?
+            WHERE p.landlord_id = ? AND p.vistaarrendador = 'activo'
             ORDER BY p.created_at DESC`,
             [landlordId]
         );

@@ -71,7 +71,7 @@ class VisitModel {
              LEFT JOIN apartments a ON v.property_id = a.id_apt
              LEFT JOIN barrio b ON a.id_barrio = b.id_barrio
              LEFT JOIN users l ON v.landlord_id = l.user_id
-             WHERE v.tenant_id = ?
+             WHERE v.tenant_id = ? AND v.vistainquilino = 'activo'
              ORDER BY v.visit_date DESC`,
             [tenant_id]
         );
@@ -87,7 +87,7 @@ class VisitModel {
              LEFT JOIN apartments a ON v.property_id = a.id_apt
              LEFT JOIN barrio b ON a.id_barrio = b.id_barrio
              LEFT JOIN users t ON v.tenant_id = t.user_id
-             WHERE v.landlord_id = ?
+             WHERE v.landlord_id = ? AND v.vistaarrendador = 'activo'
              ORDER BY v.visit_date DESC`,
             [landlord_id]
         );

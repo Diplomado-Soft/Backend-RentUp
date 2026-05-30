@@ -102,7 +102,7 @@ class Review {
          FROM reviews r
          INNER JOIN apartments a ON r.property_id = a.id_apt
          LEFT JOIN barrio b ON a.id_barrio = b.id_barrio
-         WHERE r.reviewer_id = ?
+         WHERE r.reviewer_id = ? AND r.vistainquilino = 'activo'
          ORDER BY r.created_at DESC`,
         [user_id]
       );
@@ -140,7 +140,7 @@ class Review {
          INNER JOIN users u ON r.reviewer_id = u.user_id
          INNER JOIN apartments a ON r.property_id = a.id_apt
          LEFT JOIN barrio b ON a.id_barrio = b.id_barrio
-         WHERE a.user_id = ?
+         WHERE a.user_id = ? AND r.vistaarrendador = 'activo'
          ORDER BY r.created_at DESC`,
         [landlord_id]
       );

@@ -2,6 +2,8 @@ const Review = require('../models/ReviewModel');
 const AIAnalysisService = require('../utils/aiAnalysisService');
 const Notification = require('../models/NotificationModel');
 const Contract = require('../models/ContractModel');
+const { sendReviewRejectionEmail } = require('../utils/emailService');
+const db = require('../config/db');
 const { CreateReviewDTO, UpdateReviewDTO, ReviewDTO } = require('../dtos');
 
 /**
@@ -442,23 +444,47 @@ exports.rejectReview = async (req, res) => {
       });
     }
 
-    // Registrar acción antes de eliminar
-    await Review.logModerationAction(review_id, admin_id, 'reject', notes);
-
-    // Eliminar la review
-    const deleted = await Review.deleteReview(review_id);
-
-    if (!deleted) {
-      return res.status(500).json({
-        error: 'No se pudo eliminar la review'
-      });
+    // Obtener datos de la reseña para el email
+    const review = await Review.getReviewById(review_id);
+    if (!review) {
+      return res.status(404).json({ error: 'Reseña no encontrada' });
     }
+
+    // Obtener datos del usuario y la propiedad
+    const [userData] = await db.query(
+      'SELECT user_name, user_lastname, user_email FROM users WHERE user_id = ?',
+      [review.reviewer_id]
+    );
+    const [aptData] = await db.query(
+      'SELECT direccion_apt FROM apartments WHERE id_apt = ?',
+      [review.property_id]
+    );
+
+    // Soft-delete: ocultar la reseña para todos
+    await db.execute(
+      'UPDATE reviews SET vistainquilino = \'inactivo\', vistaarrendador = \'inactivo\' WHERE review_id = ?',
+      [review_id]
+    );
+
+    // Registrar acción
+    await Review.logModerationAction(review_id, admin_id, 'reject', notes);
 
     console.log(`❌ Review ${review_id} rechazada por admin ${admin_id}. Motivo: ${notes}`);
 
+    // Enviar email al usuario
+    if (userData.length > 0) {
+      const nombre = userData[0].user_name || '';
+      const apellido = userData[0].user_lastname || '';
+      const email = userData[0].user_email;
+      const direccion = aptData.length > 0 ? aptData[0].direccion_apt : 'la propiedad';
+
+      sendReviewRejectionEmail(email, nombre, apellido, direccion, notes)
+        .catch(err => console.error('Error enviando email de reseña rechazada:', err.message));
+    }
+
     res.json({
       success: true,
-      message: 'Review rechazada y eliminada correctamente'
+      message: 'Review rechazada correctamente'
     });
   } catch (error) {
     console.error('Error rechazando review:', error);

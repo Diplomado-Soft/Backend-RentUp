@@ -65,8 +65,9 @@ exports.addApartment = async (req, res) => {
 
         console.log(`📍 Datos del apartamento:`, dtoData);
 
-        // ✅ Apartment.addApartment llamado UNA SOLA VEZ
-        const apartmentResult = await Apartment.addApartment(dtoData);
+        const uploadedImageKeys = req.processedFiles?.map(f => f.s3_key) || [];
+
+        const apartmentResult = await Apartment.addApartment(dtoData, uploadedImageKeys);
 
         const apartmentId = apartmentResult.insertId;
 

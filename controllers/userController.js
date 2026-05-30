@@ -118,7 +118,15 @@ exports.signup = async (req, res) => {
         }
         
         // Crear usuario en la db
-        const newUser = await User.signup(dtoData);
+        let newUser;
+        try {
+            newUser = await User.signup(dtoData);
+        } catch (signupErr) {
+            if (signupErr.code === 'ER_DUP_ENTRY' || (signupErr.message && signupErr.message.includes('Duplicate'))) {
+                return res.status(409).json({ error: 'El correo electrónico ya está registrado' });
+            }
+            throw signupErr;
+        }
 
         // Si es arrendador y subió cédula, procesarla
         if (dtoData.rolId === 2 && req.file) {
