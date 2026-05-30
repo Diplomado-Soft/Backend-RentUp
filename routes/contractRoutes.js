@@ -10,15 +10,13 @@ router.get('/my-contracts', authMiddleware, contractController.getMyContracts);
 router.get('/landlord/contracts', authMiddleware, isLandlord, contractController.getLandlordContracts);
 router.get('/landlord/available-apartments', authMiddleware, isLandlord, contractController.getAvailableApartments);
 router.get('/search-tenants', authMiddleware, contractController.searchTenants);
-router.post('/expire-old', contractController.expireOldContracts);
+router.post('/expire-old', authMiddleware, contractController.expireOldContracts);
 router.get('/:agreement_id', authMiddleware, contractController.getContractById);
-router.get('/:agreement_id/pdf', authMiddleware, contractController.getContractPdf);
 router.put('/:agreement_id/status', authMiddleware, contractController.updateContractStatus);
 router.get('/stats/monthly', authMiddleware, contractController.getMonthlyStats);
 router.put('/:agreement_id/sign', authMiddleware, contractController.signContract);
 router.post('/:agreement_id/renew', authMiddleware, contractController.renewContract);
 router.post('/:agreement_id/end', authMiddleware, contractController.endAndMakeAvailable);
-router.put('/:agreement_id/sign', authMiddleware, contractController.signContract);
 router.get('/:agreement_id/pdf', (req, res, next) => {
     const token = req.query.token || req.headers.authorization?.replace('Bearer ', '');
     if (token && !req.headers.authorization) {

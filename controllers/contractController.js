@@ -329,8 +329,8 @@ exports.endAndMakeAvailable = async (req, res) => {
             return res.status(400).json({ error: 'El contrato no está activo' });
         }
 
-        const expired = await Contract.hasAutoExpiredAndMakeAvailable(parseInt(agreement_id));
-        if (!expired) {
+        const result = await Contract.manualTerminateContract(parseInt(agreement_id));
+        if (!result) {
             return res.status(400).json({ error: 'No se pudo finalizar el contrato' });
         }
 

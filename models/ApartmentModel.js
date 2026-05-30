@@ -4,7 +4,7 @@ const idriveService = require('../utils/idriveService');
 const { sendApartmentRejectionEmail, sendApartmentApprovalEmail } = require('../utils/emailService');
 
 class Apartment {
-    static async addApartment(data) {
+    static async addApartment(data, uploadedImageKeys = []) {
         const connection = await db.getConnection();
         try {
             await connection.beginTransaction();
@@ -60,6 +60,13 @@ class Apartment {
             return apartmentResult;
         } catch (error) {
             await connection.rollback();
+            for (const key of uploadedImageKeys) {
+                try {
+                    await idriveService.deleteImage(key);
+                } catch (cleanupErr) {
+                    console.error(`Error limpiando imagen huérfana ${key}:`, cleanupErr.message);
+                }
+            }
             console.error('❌ Error en addApartment:', error.message);
             throw error;
         } finally {
@@ -123,7 +130,8 @@ class Apartment {
                 'latitud_apt = ?',
                 'longitud_apt = ?',
                 'info_add_apt = ?',
-                'comodidades = ?'
+                'comodidades = ?',
+                'updated_date = NOW()'
             ];
             const setValues = [
                 data.direccion_apt,

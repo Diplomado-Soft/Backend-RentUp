@@ -63,7 +63,7 @@ class Contract {
             LEFT JOIN apartments a ON r.property_id = a.id_apt
             LEFT JOIN barrio b ON a.id_barrio = b.id_barrio
             LEFT JOIN users tenant ON r.tenant_id = tenant.user_id
-            WHERE r.landlord_id = ?
+            WHERE r.landlord_id = ? AND r.vistaarrendador = 'activo'
             ORDER BY r.created_at DESC`,
             [landlord_id]
         );
@@ -115,7 +115,7 @@ class Contract {
             LEFT JOIN barrio b ON a.id_barrio = b.id_barrio
             LEFT JOIN users landlord ON r.landlord_id = landlord.user_id
             LEFT JOIN apartment_images ai ON a.id_apt = ai.id_apt
-            WHERE r.tenant_id = ?
+            WHERE r.tenant_id = ? AND r.vistainquilino = 'activo'
             GROUP BY r.agreement_id
             ORDER BY r.created_at DESC`,
             [tenant_id]
@@ -160,7 +160,7 @@ class Contract {
             LEFT JOIN barrio b ON a.id_barrio = b.id_barrio
             LEFT JOIN users tenant ON r.tenant_id = tenant.user_id
             LEFT JOIN apartment_images ai ON a.id_apt = ai.id_apt
-            WHERE r.landlord_id = ?
+            WHERE r.landlord_id = ? AND r.vistaarrendador = 'activo'
             GROUP BY r.agreement_id
             ORDER BY r.created_at DESC`,
             [landlord_id]
@@ -432,7 +432,7 @@ class Contract {
             FROM rental_agreements 
             WHERE property_id = ? 
             AND tenant_id = ?
-            AND status IN ('active', 'expired')`,
+            AND status IN ('active', 'expired', 'terminated')`,
             [propertyId, userId]
         );
         return results.length > 0 ? results[0] : null;
@@ -519,56 +519,37 @@ class Contract {
         }
     }
 
-    static async sign(agreement_id) {
+    static async manualTerminateContract(agreement_id) {
         const connection = await db.getConnection();
         try {
             await connection.beginTransaction();
 
             const [contract] = await connection.query(
-                'SELECT * FROM rental_agreements WHERE agreement_id = ?',
+                'SELECT * FROM rental_agreements WHERE agreement_id = ? AND status = \'active\'',
                 [agreement_id]
             );
 
-            if (contract.length === 0) {
-                const err = new Error('Contrato no encontrado');
-                err.statusCode = 404;
-                throw err;
-            }
-
-            if (contract[0].status === 'signed') {
-                const err = new Error('El contrato ya está firmado');
-                err.statusCode = 400;
-                throw err;
-            }
-
-            if (contract[0].status !== 'active') {
-                const err = new Error('Solo se pueden firmar contratos activos');
-                err.statusCode = 400;
-                throw err;
-            }
+            if (contract.length === 0) return null;
 
             await connection.execute(
-                'UPDATE rental_agreements SET status = ?, signed_at = NOW() WHERE agreement_id = ?',
-                ['signed', agreement_id]
+                'UPDATE rental_agreements SET status = ?, end_date = CURDATE() WHERE agreement_id = ?',
+                ['terminated', agreement_id]
             );
+
+            const [otherActive] = await connection.query(
+                'SELECT agreement_id FROM rental_agreements WHERE property_id = ? AND status = \'active\' AND agreement_id != ?',
+                [contract[0].property_id, agreement_id]
+            );
+
+            if (otherActive.length === 0) {
+                await connection.execute(
+                    'UPDATE apartments SET status = ? WHERE id_apt = ?',
+                    ['available', contract[0].property_id]
+                );
+            }
 
             await connection.commit();
-
-            const [updated] = await connection.query(
-                `SELECT r.*, 
-                        a.direccion_apt, b.barrio,
-                        tenant.user_name AS tenant_name, tenant.user_email AS tenant_email,
-                        landlord.user_name AS landlord_name, landlord.user_email AS landlord_email
-                 FROM rental_agreements r
-                 LEFT JOIN apartments a ON r.property_id = a.id_apt
-                 LEFT JOIN barrio b ON a.id_barrio = b.id_barrio
-                 LEFT JOIN users tenant ON r.tenant_id = tenant.user_id
-                 LEFT JOIN users landlord ON r.landlord_id = landlord.user_id
-                 WHERE r.agreement_id = ?`,
-                [agreement_id]
-            );
-
-            return updated[0];
+            return contract[0];
         } catch (error) {
             await connection.rollback();
             throw error;

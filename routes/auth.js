@@ -7,6 +7,8 @@ const { signup } = require('../controllers/userController');
 
 // Firebase Google Sign-In: recibe Firebase token y devuelve JWT de la app
 router.post('/firebase-login', firebaseLogin);
+// NOTA: /auth/login es alias de firebaseLogin para clientes que usan Google SSO
+// El login por email+password está en /users/login (userRoutes.js)
 router.post('/login', firebaseLogin);
 router.post('/google', firebaseLogin);
 

@@ -66,7 +66,7 @@ class MaintenanceModel {
              FROM maintenance_reports mr
              LEFT JOIN apartments a ON mr.property_id = a.id_apt
              LEFT JOIN barrio b ON a.id_barrio = b.id_barrio
-             WHERE mr.tenant_id = ?
+             WHERE mr.tenant_id = ? AND mr.vistainquilino = 'activo'
              ORDER BY mr.created_at DESC`,
             [tenant_id]
         );
@@ -98,7 +98,7 @@ class MaintenanceModel {
              LEFT JOIN apartments a ON mr.property_id = a.id_apt
              LEFT JOIN barrio b ON a.id_barrio = b.id_barrio
              LEFT JOIN users u ON mr.tenant_id = u.user_id
-             WHERE a.user_id = ?
+             WHERE a.user_id = ? AND mr.vistaarrendador = 'activo'
              ORDER BY mr.created_at DESC`,
             [landlord_id]
         );

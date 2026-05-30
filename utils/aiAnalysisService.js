@@ -4,6 +4,23 @@ let pipeline = null;
 let sentimentPipeline = null;
 let pipelineLoaded = false;
 
+const SPANISH_PROFANITY = [
+    'mierda', 'puta', 'puto', 'pendejo', 'culero', 'carajo', 'coño',
+    'hijo de puta', 'hijueputa', 'hp', 'verga', 'webon', 'weon',
+    'cabron', 'cabrón', 'chingar', 'chinga', 'chingado',
+    'joder', 'jodido', 'jodiendo', 'joda',
+    'estúpido', 'estupido', 'imbécil', 'imbecil', 'idiota',
+    'malparido', 'malparida', 'gonorrea', 'marica',
+    'basura', 'asqueroso', 'horrible', 'pésimo', 'pésima',
+    'pésimo servicio', 'pésimo producto',
+    'no sirve', 'no funciona', 'perdida de tiempo', 'perdida total'
+];
+
+const hasProfanity = (text) => {
+    const lower = text.toLowerCase();
+    return SPANISH_PROFANITY.some(word => lower.includes(word));
+};
+
 const getPipeline = async () => {
     if (pipelineLoaded) return sentimentPipeline;
     try {
@@ -75,6 +92,27 @@ const labelToSentiment = (label) => {
 
 const processReviewAnalysis = async (comment, rating) => {
     try {
+        const hasInappropriateContent = comment && comment.trim().length > 0 && hasProfanity(comment);
+        const ratingMismatch = rating >= 4 && hasInappropriateContent;
+
+        if (hasInappropriateContent) {
+            const flags = ['LENGUAJE_INAPROPIADO'];
+            if (ratingMismatch) flags.push('CONTRADICCION_VALORACION');
+
+            return {
+                status: 'analyzed',
+                sentiment: { sentiment: 'negative', score: 1 },
+                moderation: {
+                    requires_moderation: true,
+                    reason: ratingMismatch
+                        ? `Valoración alta (${rating}★) pero comentario inapropiado: se detectó lenguaje ofensivo`
+                        : 'Se detectó lenguaje inapropiado en el comentario',
+                    flags,
+                    severity: 'high'
+                }
+            };
+        }
+
         const pipe = await getPipeline();
 
         if (pipe && comment && comment.trim().length > 0) {
@@ -83,7 +121,7 @@ const processReviewAnalysis = async (comment, rating) => {
             const score = result[0].score;
 
             const sentiment = labelToSentiment(label);
-            const requiresModeration = sentiment === 'negative' && score > 0.7;
+            const requiresModeration = sentiment === 'negative' && score > 0.6;
 
             return {
                 status: 'analyzed',

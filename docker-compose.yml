@@ -1,0 +1,15 @@
+services:
+  backend:
+    build: .
+    ports:
+      - "9000:9000"
+    env_file:
+      - .env
+    volumes:
+      - ./certs:/app/certs
+    networks:
+      - rentup-network
+
+networks:
+  rentup-network:
+    external: true

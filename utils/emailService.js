@@ -213,6 +213,30 @@ const sendEmailAccountDelete = async (email, nombre, apellido, reactivationDate)
     }
 };
 
+const sendReviewRejectionEmail = async (email, nombre, apellido, direccion, motivo) => {
+    try {
+        const html = await renderTemplate('reviewRejected', { nombre, apellido, direccion, motivo });
+
+        const { data, error } = await resend.emails.send({
+            from: FROM_EMAIL,
+            to: email,
+            subject: 'Tu reseña fue eliminada por contenido inapropiado - RentUp',
+            html
+        });
+
+        if (error) {
+            console.error('Error enviando correo de reseña rechazada:', error.message);
+            return { success: false, error };
+        }
+
+        console.log('Correo de reseña rechazada enviado:', data?.id);
+        return { success: true, info: data };
+    } catch (error) {
+        console.error('Error enviando correo de reseña rechazada:', error.message);
+        return { success: false, error };
+    }
+};
+
 const sendMaintenanceNotificationEmail = async (email, nombre, apellido, report) => {
     try {
         const html = await renderTemplate('maintenanceNotification', { nombre, apellido, report });
@@ -427,6 +451,7 @@ module.exports = {
     sendUserBlockEmail,
     sendPasswordResetEmail,
     sendEmailAccountDelete,
+    sendReviewRejectionEmail,
     sendMaintenanceNotificationEmail,
     sendPaymentConfirmationEmail,
     sendPaymentReminderEmail,

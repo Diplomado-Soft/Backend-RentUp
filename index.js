@@ -108,6 +108,7 @@ const maintenanceRoutes = require('./routes/maintenanceRoutes');
 const visitRoutes = require('./routes/visitRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
 const pushRoutes = require('./routes/pushRoutes');
+const visibilityRoutes = require('./routes/visibilityRoutes');
 const paymentController = require('./controllers/paymentController');
 const KycModel = require('./models/KycModel');
 const MaintenanceModel = require('./models/MaintenanceModel');
@@ -131,11 +132,10 @@ app.use('/admin/users', adminUserRoutes);
 app.use('/geolocation', geolocationRoutes);
 app.use('/kyc', kycRoutes);
 app.use('/maintenance', maintenanceRoutes);
-// Webhook de Stripe (body crudo, sin JSON parse)
-app.post('/payments/webhook', paymentController.handleWebhook,express.raw({ type: 'application/json' }));
 app.use('/payments', paymentRoutes);
 app.use('/visits', visitRoutes);
 app.use('/push', pushRoutes);
+app.use('/visibility', visibilityRoutes);
 
 // === Manejo de errores ===
 app.use((_, res) => res.status(404).json({ error: 'Endpoint no encontrado' }));
@@ -407,6 +407,21 @@ module.exports.emitAdminNotification = emitAdminNotification;
             }
         } catch (modelErr) {
             console.warn('⚠️ Advertencia en migración de notasRevision:', modelErr.message);
+        }
+
+        // 2l. Ejecutar migración de columnas de visibilidad
+        try {
+            const db = require('./config/db');
+            const fs = require('fs');
+            const path = require('path');
+            const migrationPath = path.join(__dirname, 'migrations', '009_add_visibility_columns.sql');
+            if (fs.existsSync(migrationPath)) {
+                const sql = fs.readFileSync(migrationPath, 'utf8');
+                await db.query(sql);
+                console.log('✅ Migración de visibilidad ejecutada');
+            }
+        } catch (modelErr) {
+            console.warn('⚠️ Advertencia en migración de visibilidad:', modelErr.message);
         }
 
         // 2d. Cargar configuración de geolocalización
