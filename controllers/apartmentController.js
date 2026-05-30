@@ -1,4 +1,5 @@
 const Apartment = require('../models/ApartmentModel');
+const UserModel = require('../models/userModel');
 const { CreateApartmentDTO, UpdateApartmentDTO, ApartmentDTO } = require('../dtos');
 
 /**
@@ -49,6 +50,15 @@ exports.addApartment = async (req, res) => {
                 error: 'Datos de apartamento inválidos',
                 errors: validation.errors
             });
+        }
+
+        // Validar cantidad de imágenes
+        const imageCount = req.processedFiles?.length || 0;
+        if (imageCount < 5) {
+            return res.status(400).json({ error: 'Debe cargar al menos 5 fotos' });
+        }
+        if (imageCount > 15) {
+            return res.status(400).json({ error: 'Máximo 15 fotos permitidas' });
         }
 
         const dtoData = apartmentDTO.toDatabaseFormat();
@@ -184,6 +194,15 @@ exports.updateApartment = async (req, res) => {
                 error: 'Datos de actualización inválidos',
                 errors: validation.errors
             });
+        }
+
+        // Validar cantidad de imágenes (existentes + nuevas)
+        const totalImages = existingImagesArray.length + newImages.length;
+        if (totalImages < 5) {
+            return res.status(400).json({ error: 'Debe haber al menos 5 fotos' });
+        }
+        if (totalImages > 15) {
+            return res.status(400).json({ error: 'Máximo 15 fotos permitidas' });
         }
 
         const dtoData = updateDTO.toDatabaseFormat();
