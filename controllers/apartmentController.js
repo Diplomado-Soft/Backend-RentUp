@@ -172,6 +172,16 @@ exports.updateApartment = async (req, res) => {
         const { id_apt } = req.params;
         const newImages = req.processedFiles || [];
 
+        // Verificar que el apartamento sea editable (en revisión + no arrendado)
+        const [aptRows] = await Apartment.getBasicInfo(id_apt);
+        if (!aptRows || aptRows.length === 0) {
+            return res.status(404).json({ error: 'Apartamento no encontrado' });
+        }
+        const apt = aptRows[0];
+        if (apt.status === 'rented' || await Apartment.hasActiveContracts(id_apt)) {
+            return res.status(403).json({ error: 'No se puede editar un apartamento con contratos activos' });
+        }
+
         // Procesar existing_images
         let existingImagesArray = [];
         if (req.body.existing_images) {

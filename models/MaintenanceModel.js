@@ -35,7 +35,7 @@ class MaintenanceModel {
     static async create({ property_id, tenant_id, title, description, priority, image_url, s3_key, expires_at }) {
         const [result] = await db.execute(
             `INSERT INTO maintenance_reports (property_id, tenant_id, title, description, priority, image_url, s3_key, expires_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
             [property_id, tenant_id, title, description || null, priority || 'medium', image_url || null, s3_key || null, expires_at || null]
         );
         return result.insertId;
