@@ -9,8 +9,8 @@ class ContractDTO {
         this.landlord_id = contract.landlord_id;
         this.start_date = contract.start_date;
         this.end_date = contract.end_date;
-        this.monthly_rent = contract.monthly_rent;
-        this.deposit_amount = contract.deposit_amount;
+        this.monthly_rent = contract.monthly_rent ? Number(contract.monthly_rent) : null;
+        this.deposit_amount = contract.deposit_amount ? Number(contract.deposit_amount) : null;
         this.terms = contract.terms;
         this.status = contract.status;
         this.created_at = contract.created_at;
@@ -55,15 +55,56 @@ class ContractDTO {
  * Coincide con los campos que espera ContractModel.create()
  */
 class CreateContractDTO {
+    /**
+     * Calcula la fecha de fin según meses calendario.
+     * Ej: 31 ene + 1 mes → 28 feb, 28 feb + 1 mes → 27 mar
+     */
+    static calculateEndDate(startDate, months) {
+        const end = new Date(startDate);
+        const startDay = startDate.getDate();
+        end.setMonth(end.getMonth() + months);
+
+        if (end.getDate() !== startDay) {
+            // El día no existe en el mes destino (ej: Jan 31 → Feb)
+            end.setDate(0); // último día del mes anterior
+        } else {
+            end.setDate(end.getDate() - 1); // día anterior a la misma fecha
+        }
+
+        return end.toISOString().split('T')[0];
+    }
+
     constructor(data) {
         this.id_apt = parseInt(data.id_apt);
         this.tenant_id = parseInt(data.tenant_id);
         this.landlord_id = parseInt(data.landlord_id);
         this.start_date = data.start_date;
-        this.end_date = data.end_date;
+        this.end_date = data.end_date || null;
+        this.duration_months = data.duration_months ? parseInt(data.duration_months) : null;
         this.monthly_rent = parseFloat(data.monthly_rent);
         this.deposit_amount = data.deposit_amount ? parseFloat(data.deposit_amount) : null;
         this.terms = data.terms || null;
+
+        // Si no hay end_date pero sí duration_months, calcular end_date automáticamente
+        if (!this.end_date && this.start_date && this.duration_months && this.duration_months >= 1) {
+            const start = new Date(this.start_date);
+            if (!isNaN(start.getTime())) {
+                this.end_date = CreateContractDTO.calculateEndDate(start, this.duration_months);
+            }
+        }
+    }
+
+    /**
+     * Encuentra cuántos meses calendario hay entre start y endDateString.
+     * Recorre 1..24 hasta que calculateEndDate(start, N) coincida con endDateString.
+     */
+    static getMonthsBetween(startDate, endDateString) {
+        for (let m = 1; m <= 24; m++) {
+            if (CreateContractDTO.calculateEndDate(startDate, m) === endDateString) {
+                return m;
+            }
+        }
+        return null;
     }
 
     validate() {
@@ -89,21 +130,21 @@ class CreateContractDTO {
             errors.push('end_date debe ser una fecha válida');
         }
 
-        if (!this.monthly_rent || isNaN(this.monthly_rent) || this.monthly_rent <= 0) {
-            errors.push('monthly_rent debe ser un número mayor a 0');
-        }
-
         if (this.start_date && this.end_date) {
             const start = new Date(this.start_date);
             const end = new Date(this.end_date);
-            const diffDays = Math.round((end - start) / (1000 * 60 * 60 * 24));
             if (end <= start) {
                 errors.push('end_date debe ser posterior a start_date');
-            } else if (diffDays < 30) {
-                errors.push('La duración mínima del contrato es de 30 días');
-            } else if (diffDays % 30 !== 0) {
-                errors.push('La duración del contrato debe ser en múltiplos de 30 días (30, 60, 90, 120...)');
+            } else {
+                const months = CreateContractDTO.getMonthsBetween(start, this.end_date);
+                if (!months) {
+                    errors.push('end_date no corresponde a una cantidad exacta de meses calendario (1-24)');
+                }
             }
+        }
+
+        if (!this.monthly_rent || isNaN(this.monthly_rent) || this.monthly_rent <= 0) {
+            errors.push('monthly_rent debe ser un número mayor a 0');
         }
 
         return {

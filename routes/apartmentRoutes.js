@@ -17,7 +17,7 @@ router.post('/uploadImage/:id_apt',
 router.post('/addApartment', 
     authMiddleware,
     isLandlord,
-    upload.array('images', 10),
+    upload.array('images', 15),
     validateFiles,
     ApartmentController.addApartment
 );
@@ -25,7 +25,7 @@ router.post('/addApartment',
 router.put('/update/:id_apt', 
     authMiddleware,
     isLandlord,
-    upload.array('new_images', 10),
+    upload.array('new_images', 15),
     validateFiles,
     ApartmentController.updateApartment
 );

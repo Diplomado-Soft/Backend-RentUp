@@ -25,6 +25,7 @@ class ApartmentDTO {
         this.id_document_url = apartment.id_document_url || null;
         this.id_document_key = apartment.id_document_key || null;
         this.kyc_status = apartment.kyc_status || 'pending';
+        this.publicationInfo = apartment.publicationInfo || null;
     }
 
     static fromDatabase(apartment) {

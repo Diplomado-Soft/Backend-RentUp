@@ -109,26 +109,48 @@ class Apartment {
                 [data.barrio]
             );
 
-            // 2. Actualizar los datos del apartamento
-            const [updateResult] = await connection.query(
-            `UPDATE apartments 
-                SET direccion_apt = ?, 
-                    id_barrio = ?, 
-                    latitud_apt = ?, 
-                    longitud_apt = ?, 
-                    info_add_apt = ?,
-                    comodidades = ?
-                WHERE id_apt = ?`,
-                [
-                    data.direccion_apt,
-                    barrioResults[0].id_barrio,
-                    data.latitud_apt,
-                    data.longitud_apt,
-                    data.info_add_apt || null,
-                    data.comodidades || null,
-                    id_apt
-                ]
+            // 2. Verificar si el apto estaba rechazado (para auto-resubmit)
+            const [pubRows] = await connection.query(
+                'SELECT publication_status FROM apartments WHERE id_apt = ?',
+                [id_apt]
             );
+            const wasRejected = pubRows[0]?.publication_status === 'rejected';
+
+            // 3. Actualizar los datos del apartamento
+            const setFields = [
+                'direccion_apt = ?',
+                'id_barrio = ?',
+                'latitud_apt = ?',
+                'longitud_apt = ?',
+                'info_add_apt = ?',
+                'comodidades = ?'
+            ];
+            const setValues = [
+                data.direccion_apt,
+                barrioResults[0].id_barrio,
+                data.latitud_apt,
+                data.longitud_apt,
+                data.info_add_apt || null,
+                data.comodidades || null
+            ];
+
+            if (wasRejected) {
+                setFields.push('publication_status = ?', 'admin_notes = ?');
+                setValues.push('pending', null);
+            }
+
+            const [updateResult] = await connection.query(
+                `UPDATE apartments SET ${setFields.join(', ')} WHERE id_apt = ?`,
+                [...setValues, id_apt]
+            );
+
+            if (wasRejected) {
+                await connection.query(
+                    `INSERT INTO apartment_approval_history (id_apt, admin_id, old_status, new_status, notes, action_date)
+                     VALUES (?, NULL, 'rejected', 'pending', 'Reenviado por el arrendador al editar', NOW())`,
+                    [id_apt]
+                );
+            }
 
             // 3. Manejo de imágenes existentes
             if (data.existing_images) {
@@ -420,31 +442,31 @@ class Apartment {
                     u.user_lastname,
                     u.user_email,
                     u.user_phonenumber,
-                    u.whatsapp,
-                    GROUP_CONCAT(
-                        DISTINCT CONCAT(ai.id_image, ':', ai.s3_key)
-                    ) AS image_data
+                    u.whatsapp
                 FROM apartments AS a
                 LEFT JOIN barrio AS b ON a.id_barrio = b.id_barrio
                 LEFT JOIN users AS u ON a.user_id = u.user_id
-                LEFT JOIN apartment_images AS ai ON a.id_apt = ai.id_apt
-                WHERE a.id_apt = ?
-                GROUP BY a.id_apt`,
+                WHERE a.id_apt = ?`,
                 [id]
             );
 
             if (!results[0]) return null;
 
             const apt = results[0];
-            if (apt.image_data) {
+
+            // Traer imágenes por separado (sin GROUP_CONCAT para evitar truncamiento)
+            const [imageRows] = await db.query(
+                'SELECT id_image, s3_key FROM apartment_images WHERE id_apt = ? ORDER BY created_at ASC',
+                [id]
+            );
+
+            if (imageRows && imageRows.length > 0) {
                 const { getValidSignedUrl } = require('../services/urlRefreshService');
-                const imagePairs = apt.image_data.split(',');
                 apt.images = await Promise.all(
-                    imagePairs.map(async pair => {
+                    imageRows.map(async row => {
                         try {
-                            const [imgId, s3_key] = pair.split(':');
-                            const { signedUrl, expiresAt } = await getValidSignedUrl(parseInt(imgId));
-                            return { id: imgId, s3_key, url: signedUrl, expiresAt };
+                            const { signedUrl, expiresAt } = await getValidSignedUrl(row.id_image);
+                            return { id: row.id_image, s3_key: row.s3_key, url: signedUrl, expiresAt };
                         } catch { return null; }
                     })
                 );
@@ -452,7 +474,6 @@ class Apartment {
             } else {
                 apt.images = [];
             }
-            delete apt.image_data;
 
             // Obtener KYC por separado (seguro, sin JOIN)
             const kycMap = await this.getKycByApartmentIds([id]);
@@ -502,35 +523,39 @@ class Apartment {
                     u.user_name,
                     u.user_lastname,
                     u.user_email,
-                    u.user_phonenumber,
-                    COUNT(ai.id_image) as image_count,
-                    GROUP_CONCAT(ai.signed_url ORDER BY ai.id_image ASC SEPARATOR '||') as image_urls
+                    u.user_phonenumber
                 FROM apartments a
                 LEFT JOIN barrio b ON a.id_barrio = b.id_barrio
                 LEFT JOIN users u ON a.user_id = u.user_id
-                LEFT JOIN apartment_images ai ON a.id_apt = ai.id_apt
                 WHERE a.publication_status = 'pending'
-                GROUP BY a.id_apt
                 ORDER BY a.created_date ASC
                 LIMIT ? OFFSET ?`,
                 [limit, offset]
             );
 
+            // Obtener imágenes en consulta separada (evita truncamiento de GROUP_CONCAT)
+            const aptIds = results.map(a => a.id_apt).filter(Boolean);
+            const [imageRows] = await connection.query(
+                `SELECT id_image, id_apt, signed_url FROM apartment_images WHERE id_apt IN (?) ORDER BY id_apt, created_at ASC`,
+                [aptIds]
+            );
+            const imagesByApt = {};
+            for (const row of imageRows) {
+                if (!imagesByApt[row.id_apt]) imagesByApt[row.id_apt] = [];
+                imagesByApt[row.id_apt].push({ url: row.signed_url });
+            }
             results.forEach(apt => {
-                apt.images = apt.image_urls
-                    ? apt.image_urls.split('||').filter(Boolean).map(url => ({ url }))
-                    : [];
-                delete apt.image_urls;
+                apt.images = imagesByApt[apt.id_apt] || [];
+                apt.image_count = apt.images.length;
             });
 
             // Enriquecer con datos KYC en una segunda consulta segura
-            const aptIds = results.map(a => a.id_apt).filter(Boolean);
             const kycMap = await this.getKycByApartmentIds(aptIds);
             results.forEach(apt => {
                 const kyc = kycMap[apt.id_apt];
-            apt.id_document_url = kyc?.id_document_url || null;
-            apt.id_document_key = kyc?.id_document_key || null;
-            apt.kyc_status = kyc?.status || null;
+                apt.id_document_url = kyc?.id_document_url || null;
+                apt.id_document_key = kyc?.id_document_key || null;
+                apt.kyc_status = kyc?.status || null;
             });
 
             const [countResult] = await connection.query(
