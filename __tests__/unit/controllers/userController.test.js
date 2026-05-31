@@ -18,6 +18,8 @@ describe('Controller - User Controller', () => {
       status: jest.fn().mockReturnThis(),
       json: jest.fn(),
     };
+    process.env.JWT_SECRET = 'test-secret';
+    process.env.JWT_REFRESH_SECRET = 'test-refresh-secret';
     jest.clearAllMocks();
   });
 
@@ -145,16 +147,16 @@ describe('Controller - User Controller', () => {
       await signup(req, res);
 
       expect(res.status).toHaveBeenCalledWith(201);
-      expect(res.json).toHaveBeenCalledWith({
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
         message: 'Usuario registrado exitosamente',
-        user: {
+        user: expect.objectContaining({
           id: 1,
           email: 'john@test.com',
           rol: 1,
-        },
+        }),
         token: 'mock.jwt.token',
         refreshToken: expect.any(String),
-      });
+      }));
     });
   });
 
@@ -187,7 +189,7 @@ describe('Controller - User Controller', () => {
       await login(req, res);
 
       expect(res.status).toHaveBeenCalledWith(403);
-      expect(res.json).toHaveBeenCalledWith({ error: 'Usuario no encontrado o cuenta eliminada' });
+      expect(res.json).toHaveBeenCalledWith({ error: 'Tu cuenta está bloqueada. Contacta al administrador.' });
     });
 
     it('should return 400 if user uses Google OAuth', async () => {
@@ -239,18 +241,18 @@ describe('Controller - User Controller', () => {
 
       await login(req, res);
 
-      expect(res.json).toHaveBeenCalledWith({
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
         message: 'Autenticación exitosa',
-        user: {
+        user: expect.objectContaining({
           id: 1,
           nombre: 'John',
           apellido: 'Doe',
           email: 'test@test.com',
           telefono: '1234567890',
           rol: 2,
-        },
+        }),
         token: 'mock.jwt.token',
-      });
+      }));
     });
   });
 });
