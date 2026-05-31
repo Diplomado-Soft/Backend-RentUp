@@ -200,9 +200,9 @@ describe('Integration Tests - Contract Routes', () => {
   });
 
   describe('POST /contracts/expire-old', () => {
-    it('should expire old contracts without auth (public endpoint)', async () => {
+    it('should require auth for expire-old (now protected)', async () => {
       const res = await request(app).post('/contracts/expire-old');
-      expect([200, 500]).toContain(res.status);
+      expect([401, 403]).toContain(res.status);
     });
   });
 });

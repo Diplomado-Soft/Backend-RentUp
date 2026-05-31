@@ -35,6 +35,10 @@ jest.mock('../../../models/userModel', () => ({
   findByEmail: jest.fn(),
 }));
 
+jest.mock('../../../utils/emailService', () => ({
+  sendWelcomeEmail: jest.fn().mockResolvedValue(true),
+}));
+
 jest.mock('bcryptjs', () => ({
   compare: jest.fn().mockResolvedValue(true),
   hash: jest.fn().mockResolvedValue('hashed'),
