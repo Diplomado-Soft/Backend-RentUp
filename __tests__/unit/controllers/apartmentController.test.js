@@ -20,7 +20,8 @@ jest.mock('../../../models/ApartmentModel', () => ({
   getMarkersInfo: jest.fn().mockResolvedValue([{ id_apt: 1 }]),
   getApartmentsWithFilter: jest.fn().mockResolvedValue([{ id_apt: 1 }]),
   addImage: jest.fn().mockResolvedValue({ insertId: 1 }),
-  getBasicInfo: jest.fn().mockResolvedValue({ id_apt: 1, nombre_apt: 'Test' }),
+  getBasicInfo: jest.fn().mockResolvedValue([[{ id_apt: 1, nombre_apt: 'Test', status: 'available' }]]),
+  hasActiveContracts: jest.fn().mockResolvedValue(false),
 }));
 
 jest.mock('../../../dtos/ApartmentDTO', () => ({
