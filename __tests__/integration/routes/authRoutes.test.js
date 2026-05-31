@@ -6,6 +6,31 @@ jest.mock('../../../utils/emailService', () => ({
   sendPasswordResetEmail: jest.fn().mockResolvedValue(true),
 }));
 
+jest.mock('../../../utils/firebaseService', () => ({
+  verifyFirebaseToken: jest.fn().mockRejectedValue(new Error('Invalid token')),
+}));
+
+jest.mock('../../../models/RolModel', () => ({
+  getAll: jest.fn().mockResolvedValue([{ rol_id: 1, rol: 'usuario' }, { rol_id: 2, rol: 'arrendador' }]),
+}));
+
+jest.mock('../../../config/db', () => {
+  const mockFn = jest.fn().mockResolvedValue([[]]);
+  return { query: mockFn, execute: mockFn };
+});
+
+jest.mock('../../../models/userModel', () => ({
+  getUserData: jest.fn().mockResolvedValue(null),
+  signup: jest.fn().mockResolvedValue({ insertId: 1 }),
+  findByEmail: jest.fn().mockResolvedValue(null),
+}));
+
+jest.mock('bcryptjs', () => ({
+  compare: jest.fn().mockResolvedValue(true),
+  hash: jest.fn().mockResolvedValue('hashed'),
+  genSalt: jest.fn().mockResolvedValue('salt'),
+}));
+
 describe('Integration Tests - Auth Routes', () => {
   let app;
 
@@ -30,12 +55,12 @@ describe('Integration Tests - Auth Routes', () => {
   });
 
   describe('POST /auth/register', () => {
-    it('should return not implemented', async () => {
+    it('should return 400 for missing fields', async () => {
       const res = await request(app)
         .post('/auth/register')
         .send({ email: 'test@test.com' });
 
-      expect(res.status).toBe(501);
+      expect(res.status).toBe(400);
       expect(res.body).toHaveProperty('error');
     });
   });
