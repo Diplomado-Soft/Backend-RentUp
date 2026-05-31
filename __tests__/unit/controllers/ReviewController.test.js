@@ -38,7 +38,11 @@ jest.mock('../../../models/NotificationModel', () => ({
 }));
 
 jest.mock('../../../utils/aiAnalysisService', () => ({
-  analyzeReview: jest.fn().mockResolvedValue({ sentiment: 'positive', score: 0.8 }),
+  processReviewAnalysis: jest.fn().mockResolvedValue({
+    status: 'analyzed',
+    sentiment: { sentiment: 'positive', score: 0.8 },
+    moderation: { requires_moderation: false, reason: null, flags: [], severity: 'low' }
+  }),
 }));
 
 jest.mock('../../../dtos/ReviewDTO', () => ({
