@@ -37,6 +37,9 @@ jest.mock('../../../models/userModel', () => ({
 
 jest.mock('../../../utils/emailService', () => ({
   sendWelcomeEmail: jest.fn().mockResolvedValue(true),
+  sendUserBlockEmail: jest.fn().mockResolvedValue(true),
+  sendEmailAccountDelete: jest.fn().mockResolvedValue(true),
+  sendPasswordResetEmail: jest.fn().mockResolvedValue(true),
 }));
 
 jest.mock('bcryptjs', () => ({
