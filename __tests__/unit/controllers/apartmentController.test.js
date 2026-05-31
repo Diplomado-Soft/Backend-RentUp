@@ -84,6 +84,11 @@ describe('Unit Tests - Apartment Controller', () => {
     });
 
     it('should create apartment with valid data', async () => {
+      const mockFiles = Array.from({ length: 5 }, (_, i) => ({
+        s3_key: `test_${i}.jpg`,
+        signed_url: `http://test.com/test_${i}.jpg`,
+        expires_at: new Date(Date.now() + 86400000),
+      }));
       req.body = {
         nombre_apt: 'Test Apartment',
         descripcion_apt: 'Nice place',
@@ -91,8 +96,8 @@ describe('Unit Tests - Apartment Controller', () => {
         id_municipality: 1,
         id_type: 1,
       };
-      req.files = [{ filename: 'test.jpg' }];
-      req.processedFiles = [{ url: 'http://test.com/test.jpg' }];
+      req.files = Array.from({ length: 5 }, (_, i) => ({ filename: `test_${i}.jpg` }));
+      req.processedFiles = mockFiles;
 
       const { addApartment } = require('../../../controllers/apartmentController');
       await addApartment(req, res);
@@ -134,7 +139,7 @@ describe('Unit Tests - Apartment Controller', () => {
   describe('updateApartment', () => {
     it('should update apartment with valid data', async () => {
       req.params.id_apt = '1';
-      req.body = { nombre_apt: 'Updated', price_apt: 2000 };
+      req.body = { nombre_apt: 'Updated', price_apt: 2000, existing_images: JSON.stringify([1, 2, 3, 4, 5]) };
 
       const { updateApartment } = require('../../../controllers/apartmentController');
       await updateApartment(req, res);
