@@ -138,8 +138,14 @@ describe('Unit Tests - Apartment Controller', () => {
 
   describe('updateApartment', () => {
     it('should update apartment with valid data', async () => {
+      const mockFiles = Array.from({ length: 5 }, (_, i) => ({
+        s3_key: `test_${i}.jpg`,
+        signed_url: `http://test.com/test_${i}.jpg`,
+        expires_at: new Date(Date.now() + 86400000),
+      }));
       req.params.id_apt = '1';
-      req.body = { nombre_apt: 'Updated', price_apt: 2000, existing_images: JSON.stringify([1, 2, 3, 4, 5]) };
+      req.body = { nombre_apt: 'Updated', price_apt: 2000 };
+      req.processedFiles = mockFiles;
 
       const { updateApartment } = require('../../../controllers/apartmentController');
       await updateApartment(req, res);
