@@ -1,6 +1,10 @@
 const express = require('express');
 const request = require('supertest');
 
+jest.mock('../../../utils/emailService', () => ({
+  sendWelcomeEmail: jest.fn().mockResolvedValue(true),
+}));
+
 describe('Integration Tests - Auth Routes', () => {
   let app;
 
