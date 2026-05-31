@@ -41,6 +41,10 @@ jest.mock('../../../utils/aiAnalysisService', () => ({
   }),
 }));
 
+jest.mock('../../../utils/emailService', () => ({
+  sendReviewRejectionEmail: jest.fn().mockResolvedValue(true),
+}));
+
 describe('Integration Tests - Review Routes', () => {
   let app;
 

@@ -7,6 +7,10 @@ jest.mock('../../../utils/auth', () => ({
   generateToken: jest.fn().mockReturnValue('mock.token'),
 }));
 
+jest.mock('../../../models/userModel', () => ({
+  getUserData: jest.fn().mockResolvedValue({ rol_id: 2, estadoVerificacion: 'aprobado' }),
+}));
+
 jest.mock('../../../models/ApartmentModel', () => ({
   addApartment: jest.fn().mockResolvedValue({ insertId: 1 }),
   getApartmentById: jest.fn().mockResolvedValue({ id_apt: 1 }),
@@ -17,6 +21,23 @@ jest.mock('../../../models/ApartmentModel', () => ({
   getMarkersInfo: jest.fn().mockResolvedValue([{ id_apt: 1 }]),
   getApartmentsWithFilter: jest.fn().mockResolvedValue([{ id_apt: 1 }]),
   addImage: jest.fn().mockResolvedValue({ insertId: 1 }),
+  getBasicInfo: jest.fn().mockResolvedValue([[{ id_apt: 1, status: 'available' }]]),
+  hasActiveContracts: jest.fn().mockResolvedValue(false),
+}));
+
+jest.mock('../../../dtos', () => ({
+  CreateApartmentDTO: jest.fn().mockImplementation(() => ({
+    validate: jest.fn().mockReturnValue({ isValid: true, errors: [] }),
+    toDatabaseFormat: jest.fn().mockReturnValue({}),
+  })),
+  UpdateApartmentDTO: jest.fn().mockImplementation(() => ({
+    validate: jest.fn().mockReturnValue({ isValid: true, errors: [] }),
+    toDatabaseFormat: jest.fn().mockReturnValue({}),
+  })),
+  ApartmentDTO: {
+    fromDatabase: jest.fn().mockReturnValue({ id_apt: 1 }),
+    fromDatabaseList: jest.fn().mockReturnValue([{ id_apt: 1 }]),
+  },
 }));
 
 jest.mock('../../../config/db', () => {
