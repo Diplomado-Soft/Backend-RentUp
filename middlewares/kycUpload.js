@@ -1,5 +1,7 @@
 const multer = require('multer');
+const crypto = require('crypto');
 const idriveService = require('../utils/idriveService');
+const User = require('../models/userModel');
 
 const ALLOWED_MIMES = new Set([
     'image/jpeg', 'image/png', 'image/webp',
@@ -34,6 +36,16 @@ exports.processKycDocuments = async (req, res, next) => {
             });
         }
 
+        const fileHash = crypto.createHash('sha256').update(req.file.buffer).digest('hex');
+
+        const existingDoc = await User.findByDocumentHash(fileHash);
+        if (existingDoc && existingDoc.user_id !== userId) {
+            console.warn(`⚠️ Intento de KYC con documento duplicado. Usuario: ${userId}, dueño original: ${existingDoc.user_id}`);
+            return res.status(409).json({
+                error: 'Este documento de identidad ya está registrado en el sistema por otro usuario.'
+            });
+        }
+
         const uploadResult = await idriveService.uploadDocument(
             req.file.buffer,
             userId,
@@ -46,7 +58,8 @@ exports.processKycDocuments = async (req, res, next) => {
             id_document: {
                 key: uploadResult.key,
                 url: uploadResult.signedUrl,
-                expiresAt: uploadResult.expiresAt
+                expiresAt: uploadResult.expiresAt,
+                hash: fileHash
             }
         };
 

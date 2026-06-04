@@ -278,6 +278,8 @@ module.exports.emitAdminNotification = emitAdminNotification;
     try {
         // 2c. Inicializar modelos
         try {
+            const UserModel = require('./models/userModel');
+            await UserModel.init();
             await ChatModel.init();
             await KycModel.init();
             await MaintenanceModel.init();

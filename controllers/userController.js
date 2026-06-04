@@ -131,6 +131,17 @@ exports.signup = async (req, res) => {
         // Si es arrendador y subió cédula, procesarla
         if (dtoData.rolId === 2 && req.file) {
             try {
+                const crypto = require('crypto');
+                const fileHash = crypto.createHash('sha256').update(req.file.buffer).digest('hex');
+
+                const existingDoc = await User.findByDocumentHash(fileHash);
+                if (existingDoc) {
+                    console.warn(`⚠️ Intento de registro con cédula duplicada. Usuario existente: ${existingDoc.user_id}`);
+                    return res.status(409).json({
+                        error: 'Esta cédula ya está registrada en el sistema por otro usuario. No se puede usar el mismo documento de identidad para crear múltiples cuentas.'
+                    });
+                }
+
                 const uploadResult = await idriveService.uploadDocument(
                     req.file.buffer,
                     newUser.user_id,
@@ -138,7 +149,7 @@ exports.signup = async (req, res) => {
                     req.file.originalname,
                     req.file.mimetype
                 );
-                await User.updateCedula(newUser.user_id, uploadResult.signedUrl, uploadResult.key);
+                await User.updateCedula(newUser.user_id, uploadResult.signedUrl, uploadResult.key, fileHash);
                 console.log(`✅ Cédula subida para usuario ${newUser.user_id}`);
 
                 // Llamar al servicio de IA para verificar la cédula

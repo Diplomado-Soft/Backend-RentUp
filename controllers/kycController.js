@@ -1,4 +1,5 @@
 const KycModel = require('../models/KycModel');
+const User = require('../models/userModel');
 const { KycDTO } = require('../dtos');
 const idriveService = require('../utils/idriveService');
 
@@ -17,11 +18,20 @@ class KycController {
                 return res.status(400).json({ success: false, error: 'Debe subir al menos un documento' });
             }
 
+            const docHash = req.kycDocuments.id_document?.hash || null;
+
+            if (docHash) {
+                await User.updateCedula(userId, null, null, docHash).catch(err =>
+                    console.error('Error actualizando hash en users:', err.message)
+                );
+            }
+
             const result = await KycModel.createVerification({
                 userId,
                 apartmentId: apartment_id,
                 idDocumentUrl: req.kycDocuments.id_document?.url || null,
-                idDocumentKey: req.kycDocuments.id_document?.key || null
+                idDocumentKey: req.kycDocuments.id_document?.key || null,
+                idDocumentHash: docHash
             });
 
             return res.status(200).json({
