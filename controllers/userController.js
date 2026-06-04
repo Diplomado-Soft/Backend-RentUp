@@ -157,7 +157,6 @@ exports.signup = async (req, res) => {
                 const aiResult = await aiVerificationService.analyzeIdDocument(uploadResult.signedUrl);
                 console.log(`🤖 Resultado de IA para usuario ${newUser.user_id}:`, aiResult);
 
-                // Si la IA aprueba con alta confianza, actualizar estado a aprobado
                 if (aiResult.esValido && aiResult.confianza > 0.9) {
                     await db.execute(
                         `UPDATE users SET estadoVerificacion = 'aprobado' WHERE user_id = ?`,
@@ -165,18 +164,26 @@ exports.signup = async (req, res) => {
                     );
                     console.log(`✅ Usuario ${newUser.user_id} aprobado automáticamente por IA (confianza: ${aiResult.confianza})`);
                 } else {
-                    console.log(`⏳ Usuario ${newUser.user_id} queda en pendiente (confianza: ${aiResult.confianza})`);
-
-                    NotificationModel.createForAdmins({
-                        type: 'kyc_pending',
-                        title: 'Documento requiere revisión manual',
-                        message: `El usuario ${newUser.user_id} se registró pero la IA detectó posible anomalía en su cédula (confianza: ${(aiResult.confianza * 100).toFixed(0)}%). ${aiResult.comentario || 'Se requiere revisión manual.'}`,
-                        reference_id: newUser.user_id,
-                        reference_type: 'user'
-                    }).catch(err => console.error('Error notificando a admin sobre anomalía KYC:', err.message));
+                    await idriveService.deleteImage(uploadResult.key).catch(e =>
+                        console.error('Error limpiando archivo de IDrive:', e.message)
+                    );
+                    await User.deleteRolUser(newUser.user_id).catch(e =>
+                        console.error('Error eliminando rol de usuario:', e.message)
+                    );
+                    await User.deleteAccount(newUser.user_id).catch(e =>
+                        console.error('Error eliminando usuario:', e.message)
+                    );
+                    return res.status(400).json({
+                        error: aiResult.comentario || 'No se pudo validar su documento de identidad. Verifique que la imagen sea legible y vuelva a intentarlo.'
+                    });
                 }
             } catch (uploadErr) {
-                console.error('⚠️ Error subiendo cédula (no bloquea registro):', uploadErr.message);
+                console.error('❌ Error procesando cédula:', uploadErr.message);
+                await User.deleteRolUser(newUser.user_id).catch(e => {});
+                await User.deleteAccount(newUser.user_id).catch(e => {});
+                return res.status(400).json({
+                    error: 'Ocurrió un error al validar su documento de identidad. Verifique que la imagen sea legible y vuelva a intentarlo.'
+                });
             }
         }
 
