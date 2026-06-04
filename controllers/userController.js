@@ -166,6 +166,14 @@ exports.signup = async (req, res) => {
                     console.log(`✅ Usuario ${newUser.user_id} aprobado automáticamente por IA (confianza: ${aiResult.confianza})`);
                 } else {
                     console.log(`⏳ Usuario ${newUser.user_id} queda en pendiente (confianza: ${aiResult.confianza})`);
+
+                    NotificationModel.createForAdmins({
+                        type: 'kyc_pending',
+                        title: 'Documento requiere revisión manual',
+                        message: `El usuario ${newUser.user_id} se registró pero la IA detectó posible anomalía en su cédula (confianza: ${(aiResult.confianza * 100).toFixed(0)}%). ${aiResult.comentario || 'Se requiere revisión manual.'}`,
+                        reference_id: newUser.user_id,
+                        reference_type: 'user'
+                    }).catch(err => console.error('Error notificando a admin sobre anomalía KYC:', err.message));
                 }
             } catch (uploadErr) {
                 console.error('⚠️ Error subiendo cédula (no bloquea registro):', uploadErr.message);
