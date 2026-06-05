@@ -1,0 +1,73 @@
+services:
+  - type: web
+    name: rentup-backend
+    runtime: docker
+    repo: https://github.com/Diplomado-Soft/Backend-RentUp
+    branch: main
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DISABLE_SSL
+        value: "true"
+      - key: FRONTEND_URL
+        value: http://localhost:3000
+      - key: ALLOWED_ORIGINS
+        value: http://localhost:3000,http://localhost:8080
+      - key: JWT_EXPIRES
+        value: 24h
+      - key: JWT_REFRESH_EXPIRES
+        value: 7d
+      - key: PAYPAL_MODE
+        value: sandbox
+      - key: VAPID_SUBJECT_EMAIL
+        value: mailto:rentup@notifications.com
+      - key: URL_EXPIRATION_SECONDS
+        value: "604800"
+      - key: SSL_PORT
+        value: "3443"
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        sync: false
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_NAME
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: JWT_REFRESH_SECRET
+        sync: false
+      - key: ENCRYPTION_KEY
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: PAYPAL_CLIENT_ID
+        sync: false
+      - key: PAYPAL_CLIENT_SECRET
+        sync: false
+      - key: TWILIO_ACCOUNT_SID
+        sync: false
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
+      - key: TWILIO_PHONE_NUMBER
+        sync: false
+      - key: IDRIVE_ACCESS_KEY
+        sync: false
+      - key: IDRIVE_SECRET_KEY
+        sync: false
+      - key: IDRIVE_ENDPOINT
+        sync: false
+      - key: IDRIVE_REGION
+        sync: false
+      - key: IDRIVE_BUCKET
+        sync: false
+      - key: FIREBASE_SERVICE_ACCOUNT_JSON
+        sync: false

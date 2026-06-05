@@ -15,19 +15,30 @@ const initializeFirebase = () => {
     if (initError) throw initError;
 
     try {
-        // Leer el archivo de credenciales de Firebase desde la ruta especificada
-        const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH || 
-            path.join(__dirname, '../certs/firebase-service-account.json');
-        
-        console.log(`🔍 Intentando cargar Firebase service account desde: ${serviceAccountPath}`);
-        
-        // Usar fs.readFileSync en lugar de require() para mejor control de errores
-        if (!fs.existsSync(serviceAccountPath)) {
-            throw new Error(`Service account file not found at: ${serviceAccountPath}`);
-        }
+        let serviceAccount;
 
-        const fileContent = fs.readFileSync(serviceAccountPath, 'utf8');
-        const serviceAccount = JSON.parse(fileContent);
+        if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
+            const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+            try {
+                serviceAccount = JSON.parse(raw);
+                console.log('📦 Firebase service account loaded from FIREBASE_SERVICE_ACCOUNT_JSON env var');
+            } catch (parseErr) {
+                const decoded = Buffer.from(raw, 'base64').toString('utf8');
+                serviceAccount = JSON.parse(decoded);
+                console.log('📦 Firebase service account loaded from base64 FIREBASE_SERVICE_ACCOUNT_JSON');
+            }
+        } else {
+            const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH || 
+                path.join(__dirname, '../certs/firebase-service-account.json');
+            console.log(`🔍 Intentando cargar Firebase service account desde: ${serviceAccountPath}`);
+
+            if (!fs.existsSync(serviceAccountPath)) {
+                throw new Error(`Service account file not found at: ${serviceAccountPath}`);
+            }
+
+            const fileContent = fs.readFileSync(serviceAccountPath, 'utf8');
+            serviceAccount = JSON.parse(fileContent);
+        }
 
         if (!serviceAccount.project_id) {
             throw new Error('Invalid service account: missing project_id');
