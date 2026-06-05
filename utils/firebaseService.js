@@ -28,15 +28,31 @@ const initializeFirebase = () => {
                 console.log('📦 Firebase service account loaded from base64 FIREBASE_SERVICE_ACCOUNT_JSON');
             }
         } else {
-            const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH || 
-                path.join(__dirname, '../certs/firebase-service-account.json');
-            console.log(`🔍 Intentando cargar Firebase service account desde: ${serviceAccountPath}`);
+            const paths = [
+                process.env.FIREBASE_SERVICE_ACCOUNT_PATH,
+                path.join(__dirname, '../certs/firebase-service-account.json'),
+                path.join(__dirname, '../firebase-service-account.json'),
+            ].filter(Boolean);
 
-            if (!fs.existsSync(serviceAccountPath)) {
-                throw new Error(`Service account file not found at: ${serviceAccountPath}`);
+            let fileContent = null;
+            let foundPath = null;
+
+            for (const p of paths) {
+                console.log(`🔍 Intentando Firebase service account desde: ${p}`);
+                if (fs.existsSync(p)) {
+                    fileContent = fs.readFileSync(p, 'utf8');
+                    foundPath = p;
+                    break;
+                }
             }
 
-            const fileContent = fs.readFileSync(serviceAccountPath, 'utf8');
+            if (!fileContent) {
+                throw new Error(
+                    `Service account file not found. Tried:\n${paths.map(p => `  - ${p}`).join('\n')}`
+                );
+            }
+
+            console.log(`📦 Firebase service account loaded from: ${foundPath}`);
             serviceAccount = JSON.parse(fileContent);
         }
 

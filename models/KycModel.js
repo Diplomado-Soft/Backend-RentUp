@@ -33,14 +33,21 @@ class KycModel {
     static async init() {
         await this.ensureTable();
         try {
-            await db.execute(`
-                ALTER TABLE landlord_verification
-                ADD COLUMN IF NOT EXISTS id_document_hash VARCHAR(128) NULL AFTER id_document_key
-            `);
-        } catch (error) {
-            if (!error.message.includes('Duplicate column')) {
-                console.error('Error asegurando columna id_document_hash en landlord_verification:', error.message);
+            const dbName = process.env.DB_NAME || 'rentitp';
+            const [cols] = await db.query(
+                `SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS 
+                 WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'landlord_verification' 
+                 AND COLUMN_NAME = 'id_document_hash'`,
+                [dbName]
+            );
+            if (cols.length === 0) {
+                await db.execute(
+                    'ALTER TABLE landlord_verification ADD COLUMN id_document_hash VARCHAR(128) NULL AFTER id_document_key'
+                );
+                console.log('✅ Columna id_document_hash agregada en landlord_verification');
             }
+        } catch (error) {
+            console.error('Error asegurando columna id_document_hash en landlord_verification:', error.message);
         }
     }
 

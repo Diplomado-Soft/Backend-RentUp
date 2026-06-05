@@ -3,6 +3,6 @@ WORKDIR /app
 RUN corepack enable && corepack prepare pnpm@9 --activate
 COPY package.json pnpm-lock.yaml ./
 RUN pnpm install
+RUN mkdir -p /app/certs
 COPY . .
-EXPOSE 9000
 CMD ["node", "index.js"]
