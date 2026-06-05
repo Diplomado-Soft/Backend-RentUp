@@ -1,29 +1,43 @@
-<div style="background-color: #f7f9fb; padding: 40px 20px; font-family: Inter, Arial, sans-serif;">
-    <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
-        <div style="background-color: #dc2626; padding: 24px 32px; text-align: center;">
-            <h1 style="margin: 0; font-family: Manrope, Arial, sans-serif; font-size: 22px; font-weight: 700; color: #ffffff; letter-spacing: -0.3px;">RentUp</h1>
-        </div>
-        <div style="padding: 32px;">
-            <h2 style="margin: 0 0 16px 0; font-family: Manrope, Arial, sans-serif; font-size: 24px; font-weight: 700; color: #dc2626;">Contrato cancelado</h2>
-            <p style="margin: 0 0 4px 0; font-size: 15px; color: #4b5563; line-height: 1.6;">Hola {{nombre}} {{apellido}},</p>
-            <p style="margin: 0 0 20px 0; font-size: 15px; color: #4b5563;">Tu contrato de arriendo ha sido cancelado porque no fue firmado por ambas partes dentro del plazo de 7 días.</p>
-
-            <div style="background-color: #fef2f2; border: 1px solid #fecaca; border-radius: 10px; padding: 20px; margin: 0 0 24px 0;">
-                <table style="width: 100%; border-collapse: collapse;">
-                    <tr>
-                        <td style="padding: 8px 0; font-size: 13px; color: #6b7280; width: 40%;">Vivienda</td>
-                        <td style="padding: 8px 0; font-size: 14px; color: #1f2937; font-weight: 600;">{{direccion}}{{#if barrio}} ({{barrio}}){{/if}}</td>
-                    </tr>
-                </table>
-            </div>
-
-            <p style="margin: 0 0 20px 0; font-size: 14px; color: #4b5563; line-height: 1.6;">Si deseas continuar con el arriendo, puedes crear un nuevo contrato desde tu panel de RentUp y ambas partes deberán firmarlo dentro de los siguientes 7 días.</p>
-
-            <div style="text-align: center;">
-                <a href="{{frontendUrl}}/mis-arriendos" style="display: inline-block; background-color: #1e40af; color: #ffffff; text-decoration: none; padding: 12px 32px; border-radius: 8px; font-family: Manrope, Arial, sans-serif; font-size: 14px; font-weight: 600;">Ir a mis contratos</a>
-            </div>
-
-            {{> _footer}}
-        </div>
-    </div>
-</div>
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><meta name="color-scheme" content="light"><meta name="supported-color-schemes" content="light"><title>Contrato Cancelado - RentUp</title></head>
+<body style="margin:0;padding:0;background-color:#f3f4f6;font-family:Inter,Arial,sans-serif;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f3f4f6;"><tr><td align="center" style="padding:24px 16px;">
+<table role="presentation" width="100%" style="max-width:600px;" cellpadding="0" cellspacing="0" border="0" class="container">
+<tr><td bgcolor="#EF4444" style="padding:20px 32px;">
+<table width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+<td style="font-family:Inter,Arial,sans-serif;font-size:20px;font-weight:700;color:#ffffff;"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMgAAADICAYAAACtWK6eAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAgAElEQVR4nOx9d3xd1ZXumuS9ySSZZCbzJpOE6m7JVrfBlBBCkklCcbfVZRlMgNBx7+q9uAMBbIOxDbbBvfeKu3EHF2xZtizpttPLrd/7rX2Rh2HS3niSK17OH+t3j66ke/dZZ3979bXI0FVyyOGBswfU38sDhzEOOJw9oP9hHjjMcQDi7AHdAYizCZyDgP47PHA2jrNxnD2gOwBxNoFzEJAjQZxN4BwE+v8sDxyGOqBy9oDuAMTZBM5BQI4EcTaBcxDojorlbALnIKC/Fg+czeZsNmcP6A5AnE3gHATkSBBnEzgHge6oWM4mcA4CcmwQZxM4B4Eeex7EfAEOOTww2jEPYr4AhxweGO2YBzFfgEMOD4x2zIOYL8AhhwdGO+ZBzBfgkMMDox3zIOYLcMjhgdGOeRDzBTjk8MBoxzyI+QIccnhgtGMexHwBDjk8MNoxD2K+AIccHhjtmAcxX4BDDg+MdsyDmC/AIYcHRjvmQcwX4JDDA6Md8yDmC3DI4YHRjnkQ8wU45PDAaMc8iPkCHHJ4YLRjHsR8AQ45PDDaMQ9ivgCHHB4Y7ZgHMV+AQw4PjHbMg5gvwCGHB0Y75kHMF+CQwwOjHfMg5gtwyOGB0Y55EPMFOOTwwGjHPIj5AhxyeGC0Yx7EfAEOOTww2jEPYr4AhxweGO2YBzFfgEMOD4x2zIOYL8AhhwdGO+ZBzBfgkMMDox3zIOYLcMjhgdGOeRDzBTjk8MBoxzyI+QIccnhgtGMexHwBDjk8MNoxD2K+AIccHhjtmAcxX4BDDg+MdsyDmC/Aof/gga4pghyeqO2GBzFfgEMOD4x2zIOYL+Bvnf6YxHCkiRrz5xPzBfyt0xfVKtPQBH35fYfUmPHAYX6MN6CmygIIDAzL1AXxNb/Hv4v1+oy/cYr5Ar7qFDANUlWZJF0mXVfJUhSyJZkMTSfFMshUr0MPyOTVNPLZMlk+iWyzlWxdIa+iElweisBFDVdbcP5jL1SXQXogQF5TI7/lplbVSwFdJ1vzkmkb5HOrBM1DQa0BPl6DESZJ8ZBpKWSqGgU1hYK6izTVS4aBmPPH+IpTzBfw1acG2LqbbFUnTbVINQ3SAhrppkK6rFBYBnl8rWSFmoBWkMvwkmKwlAhQSJbJ9Efo0vlWTMlfhKdTVmJa/ho0n7oEhEFul0R2KEyS9wo0n4ssy0+mbZFtg+wASIdO/N2WopGhqGSYPpJUN1l2mBTZjIIk5vxRv9IU8wV81UlTQX4TFNYtikgqwWMQ3CaFfRpFdI2CrjA1h68j5JdJkWRSZJta0ATFZ5GuuEiFQat/dwovJC9H0b0b8FLi+6jNWY/mTxoRCOskSzpJspsQMCno99J1rRVvrDmIZwuXYOmWowgHNDK9PoJpkM93HWowQJIF0nQ/BbTWmPPH+IpTzBfwVSdF95Lh8ZLp8pGhSyRDopZIK3n0ZgqoMgV8NslhN13e2Ypt95/Cpj5HcbzmEhAMkU+XKQwffby0AS+nLMCE+zdjzEPvYkTCOygYcgDNjZeAiEEeLxvsEqmqi1bsPI7OA15Ah34j0btvGeYu2YEQQLbSLNQ7zQyTW9dI1bwEQ485f4yvOMV8AV95CnrJ8LvIMKKqjukLkuoJkCwZpNk6eU2FgopMGwedxIFvNuDQv17F1n9pwslxZ2HBT5LVQmHZRUumXERO8lJMfHQNSn/2EZ5LWoHJg7fg6idXgQjI7W0Qr+Wv7cMd/Sci9be1SMmsRdKQIsxctgOsisGy...</span></td>
+<td align="right" style="font-family:Inter,Arial,sans-serif;font-size:12px;color:#FEE2E2;">Contrato Cancelado</td>
+</tr></table>
+</td></tr>
+<tr><td style="padding:40px 32px 24px;">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr><td align="center" style="padding-bottom:16px;">
+<table cellpadding="0" cellspacing="0" border="0" style="width:80px;height:80px;border-radius:50%;background-color:#FEF2F2;"><tr><td align="center" style="font-size:36px;line-height:80px;">&#128203;&#10060;</td></tr></table>
+</td></tr>
+<tr><td align="center" style="font-size:26px;font-weight:700;color:#EF4444;padding-bottom:8px;">&iexcl;Contrato cancelado!</td></tr>
+<tr><td align="center" style="font-size:15px;color:#6B7280;line-height:1.6;">Hola {{nombre}}, tu contrato ha sido cancelado porque no fue firmado dentro del plazo de 7 d&iacute;as.</td></tr>
+</table>
+</td></tr>
+<tr><td style="padding:8px 32px 24px;">
+<table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#FEF2F2;border:1px solid #FECACA;border-radius:12px;"><tr><td style="padding:20px;">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr><td style="padding:4px 0;font-size:13px;color:#6B7280;width:30%;">Vivienda</td><td style="padding:4px 0;font-size:14px;font-weight:600;color:#1F2937;text-align:right;">{{direccion}} ({{barrio}})</td></tr>
+</table>
+</td></tr></table>
+</td></tr>
+<tr><td style="padding:0 32px 24px;"><p style="margin:0;font-size:14px;color:#6B7280;line-height:1.7;text-align:center;">Si deseas continuar con el arriendo, puedes crear un nuevo contrato desde tu panel de RentUp.</p></td></tr>
+<tr><td align="center" style="padding:8px 32px 16px;">
+<!--[if mso]>
+<v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="{{contratoUrl}}" style="height:48px;v-text-anchor:middle;width:220px;" arcsize="50%" fillcolor="#3f2acc">
+<w:anchorlock/>
+<center style="color:#ffffff;font-family:Inter,Arial,sans-serif;font-size:14px;font-weight:600;">Crear nuevo contrato</center>
+</v:roundrect>
+<![endif]-->
+<!--[if !mso]><!-->
+<a href="{{contratoUrl}}" style="display:inline-block;background:linear-gradient(135deg,#3f2acc,#5849e4);color:#ffffff;text-decoration:none;padding:14px 32px;border-radius:999px;font-size:14px;font-weight:600;box-shadow:0 4px 12px rgba(63,42,204,0.25);">Crear nuevo contrato</a>
+<!--<![endif]-->
+</td></tr>
+<tr><td align="center" style="padding:0 32px 32px;"><a href="#" style="font-size:13px;color:#6B7280;text-decoration:underline;">&iquest;Necesitas ayuda?</a></td></tr>
+<tr><td style="padding:0 32px 32px;">{{> _footer}}</td></tr>
+</table></td></tr></table></body></html>
