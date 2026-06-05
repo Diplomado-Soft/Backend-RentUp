@@ -1,37 +1,129 @@
-<div style="background-color: #f7f9fb; padding: 40px 20px; font-family: Inter, Arial, sans-serif;">
-    <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
-        <div style="background-color: #d97706; padding: 24px 32px; text-align: center;">
-            <h1 style="margin: 0; font-family: Manrope, Arial, sans-serif; font-size: 22px; font-weight: 700; color: #ffffff; letter-spacing: -0.3px;">RentUp</h1>
-        </div>
-        <div style="padding: 32px;">
-            <h2 style="margin: 0 0 16px 0; font-family: Manrope, Arial, sans-serif; font-size: 24px; font-weight: 700; color: #d97706;">Recordatorio de pago</h2>
-            <p style="margin: 0 0 4px 0; font-size: 15px; color: #4b5563; line-height: 1.6;">Hola {{nombre}} {{apellido}},</p>
-            <p style="margin: 0 0 20px 0; font-size: 15px; color: #4b5563;">Tu pago de arriendo está próximo a vencer:</p>
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recordatorio de Pago - RentUp</title>
+    <style>
+        body { margin: 0; padding: 0; background-color: #f7f9fb; font-family: Inter, Arial, sans-serif; }
+        table { border-spacing: 0; }
+        @media only screen and (max-width: 620px) {
+            .container { width: 100% !important; max-width: 100% !important; }
+        }
+    </style>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f7f9fb;">
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f7f9fb">
+        <tr>
+            <td align="center" style="padding: 40px 16px;">
+                <table width="600" cellpadding="0" cellspacing="0" border="0" class="container" style="max-width: 600px; width: 100%; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(14,26,43,0.04), 0 8px 24px -12px rgba(14,26,43,0.12);">
 
-            <div style="background-color: #fffbeb; border: 1px solid #fde68a; border-radius: 10px; padding: 24px; margin: 0 0 24px 0;">
-                <table style="width: 100%; border-collapse: collapse;">
+                    <!-- HEADER -->
                     <tr>
-                        <td style="padding: 8px 0; font-size: 13px; color: #6b7280; width: 40%;">Vivienda</td>
-                        <td style="padding: 8px 0; font-size: 14px; color: #1f2937; font-weight: 600;">{{direccion}}{{#if barrio}} ({{barrio}}){{/if}}</td>
+                        <td bgcolor="#F59E0B" style="padding: 20px 32px;">
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                                <tr>
+                                    <td align="left" style="font-family: Manrope, Arial, sans-serif; font-size: 20px; font-weight: 800; color: #ffffff;">
+                                        <img src="data:image/png;base64,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/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm/xfm"/>
+
+                                        <span style="font-family: Manrope, Arial, sans-serif; font-size: 20px; font-weight: 800; color: #ffffff; vertical-align: middle; margin-left: 8px;">RentUp</span>
+                                    </td>
+                                    <td align="right" style="font-family: Inter, Arial, sans-serif; font-size: 12px; color: #FEF3C7;">
+                                        <table cellpadding="0" cellspacing="0" border="0">
+                                            <tr>
+                                                <td style="font-family: Inter, Arial, sans-serif; font-size: 12px; color: #FEF3C7; padding-right: 4px;">Recordatorio de Pago</td>
+                                                <td style="font-size: 12px; line-height: 1; color: #FEF3C7;">ℹ</td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
                     </tr>
+
+                    <!-- HERO -->
                     <tr>
-                        <td style="padding: 8px 0; font-size: 13px; color: #6b7280; border-top: 1px solid #fde68a;">Monto</td>
-                        <td style="padding: 8px 0; font-size: 14px; color: #1f2937; font-weight: 600; border-top: 1px solid #fde68a;">${{formatCurrency amount}}</td>
+                        <td style="padding: 40px 32px 24px;">
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                                <tr>
+                                    <td align="center" style="padding-bottom: 16px;">
+                                        <table cellpadding="0" cellspacing="0" border="0" style="width: 64px; height: 64px; border-radius: 50%; background-color: #FFFBEB;">
+                                            <tr>
+                                                <td align="center" style="font-size: 28px; line-height: 64px; color: #F59E0B;">🔔</td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td align="center" style="font-family: Manrope, Arial, sans-serif; font-size: 26px; font-weight: 700; color: #F59E0B; padding-bottom: 12px;">
+                                        Recordatorio de pago
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td align="center" style="font-family: Inter, Arial, sans-serif; font-size: 15px; color: #536379; line-height: 1.6;">
+                                        Hola <strong style="color: #0e1a2b;">{{nombre}} {{apellido}}</strong>, tu pago de arriendo est&aacute; pr&oacute;ximo a vencer.
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
                     </tr>
+
+                    <!-- PAYMENT DETAILS CARD -->
                     <tr>
-                        <td style="padding: 8px 0; font-size: 13px; color: #6b7280; border-top: 1px solid #fde68a;">Vence en</td>
-                        <td style="padding: 8px 0; font-size: 14px; color: #1f2937; font-weight: 600; border-top: 1px solid #fde68a;">{{#if (gt daysLeft 0)}}{{daysLeft}} días{{else}}Hoy{{/if}}</td>
+                        <td style="padding: 8px 32px 24px;">
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #FFFBEB; border: 1px solid #FDE68A; border-radius: 12px;">
+                                <tr>
+                                    <td style="padding: 24px;">
+                                        <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                                            <tr>
+                                                <td style="padding: 8px 0; font-family: Inter, Arial, sans-serif; font-size: 13px; color: #777587; width: 40%;">Vivienda</td>
+                                                <td style="padding: 8px 0; font-family: Inter, Arial, sans-serif; font-size: 14px; font-weight: 600; color: #0e1a2b; text-align: right;">{{direccion}}{{#if barrio}} ({{barrio}}){{/if}}</td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding: 8px 0; font-family: Inter, Arial, sans-serif; font-size: 13px; color: #777587; border-top: 1px solid #FDE68A;">Monto</td>
+                                                <td style="padding: 8px 0; font-family: Manrope, Arial, sans-serif; font-size: 16px; font-weight: 700; color: #0e1a2b; text-align: right; border-top: 1px solid #FDE68A;">${{formatCurrency amount}}</td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding: 8px 0; font-family: Inter, Arial, sans-serif; font-size: 13px; color: #777587; border-top: 1px solid #FDE68A;">Vence en</td>
+                                                <td style="padding: 8px 0; font-family: Inter, Arial, sans-serif; font-size: 14px; font-weight: 600; color: #EF4444; text-align: right; border-top: 1px solid #FDE68A;">{{#if (gt daysLeft 0)}}{{daysLeft}} d&iacute;as{{else}}Hoy{{/if}}</td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding: 8px 0; font-family: Inter, Arial, sans-serif; font-size: 13px; color: #777587; border-top: 1px solid #FDE68A;">Fecha l&iacute;mite</td>
+                                                <td style="padding: 8px 0; font-family: Inter, Arial, sans-serif; font-size: 14px; font-weight: 600; color: #0e1a2b; text-align: right; border-top: 1px solid #FDE68A;">{{formatDate dueDate}}</td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
                     </tr>
+
+                    <!-- INFO TEXT -->
                     <tr>
-                        <td style="padding: 8px 0; font-size: 13px; color: #6b7280; border-top: 1px solid #fde68a;">Fecha límite</td>
-                        <td style="padding: 8px 0; font-size: 14px; color: #1f2937; font-weight: 600; border-top: 1px solid #fde68a;">{{formatDate dueDate}}</td>
+                        <td style="padding: 0 32px 24px;">
+                            <p style="margin: 0; font-family: Inter, Arial, sans-serif; font-size: 14px; color: #777587; line-height: 1.7; text-align: center;">
+                                Realiza tu pago a tiempo para evitar cargos adicionales. Puedes pagar de forma segura desde tu panel de usuario en RentUp con cualquier medio de pago.
+                            </p>
+                        </td>
                     </tr>
+
+                    <!-- CTA -->
+                    <tr>
+                        <td align="center" style="padding: 8px 32px 40px;">
+                            <a href="{{frontendUrl}}/dashboard" style="display: inline-block; background: linear-gradient(135deg, #3f2acc, #5849e4); color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 999px; font-family: Manrope, Arial, sans-serif; font-size: 14px; font-weight: 600; box-shadow: 0 4px 12px rgba(63, 42, 204, 0.25);">Pagar ahora</a>
+                        </td>
+                    </tr>
+
+                    <!-- FOOTER -->
+                    <tr>
+                        <td style="padding: 0 32px 32px;">
+                            {{> _footer}}
+                        </td>
+                    </tr>
+
                 </table>
-            </div>
-
-            <p style="margin: 0 0 20px 0; font-size: 14px; color: #4b5563; line-height: 1.6;">Realiza tu pago a tiempo para evitar cargos adicionales. Puedes pagar desde tu panel de RentUp.</p>
-
-            {{> _footer}}
-        </div>
-    </div>
-</div>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

@@ -1,36 +1,190 @@
-<div style="background-color: #f7f9fb; padding: 40px 20px; font-family: Inter, Arial, sans-serif;">
-    <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
-        <div style="background-color: #2e5a88; padding: 24px 32px; text-align: center;">
-            <h1 style="margin: 0; font-family: Manrope, Arial, sans-serif; font-size: 22px; font-weight: 700; color: #ffffff; letter-spacing: -0.3px;">RentUp</h1>
-        </div>
-        <div style="padding: 32px;">
-            <h2 style="margin: 0 0 20px 0; font-family: Manrope, Arial, sans-serif; font-size: 24px; font-weight: 700; color: #2e5a88; text-align: center;">¡Contrato concretado!</h2>
-            <p style="margin: 0 0 20px 0; font-size: 15px; color: #4b5563; line-height: 1.6; text-align: center;">Felicidades {{nombre}} {{apellido}}, has llegado a un acuerdo exitoso.</p>
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contrato Concretado - RentUp</title>
+    <style>
+        body { margin: 0; padding: 0; background-color: #f7f9fb; font-family: Inter, Arial, sans-serif; }
+        table { border-spacing: 0; }
+        @media only screen and (max-width: 620px) {
+            .container { width: 100% !important; max-width: 100% !important; }
+            .content { padding: 20px 16px !important; }
+            .responsive-grid { width: 100% !important; display: block !important; }
+            .responsive-grid td { display: block !important; width: 100% !important; text-align: center !important; padding: 8px 0 !important; }
+            .responsive-grid .right-cell { text-align: center !important; }
+        }
+    </style>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f7f9fb;">
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f7f9fb">
+        <tr>
+            <td align="center" style="padding: 40px 16px;">
+                <table width="600" cellpadding="0" cellspacing="0" border="0" class="container" style="max-width: 600px; width: 100%; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(14,26,43,0.04), 0 8px 24px -12px rgba(14,26,43,0.12);">
 
-            <div style="background-color: #f8fafc; border: 1px solid #e5e7eb; border-radius: 10px; padding: 24px; margin: 0 0 20px 0;">
-                <table style="width: 100%; border-collapse: collapse;">
+                    <!-- HEADER -->
                     <tr>
-                        <td style="padding: 8px 0; font-size: 13px; color: #6b7280; width: 40%;">Vivienda</td>
-                        <td style="padding: 8px 0; font-size: 14px; color: #1f2937; font-weight: 600;">{{aptName}}</td>
+                        <td bgcolor="#2E5A88" style="padding: 24px 32px; text-align: center;">
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                                <tr>
+                                    <td align="center" style="font-family: Manrope, Arial, sans-serif; font-size: 22px; font-weight: 800; color: #ffffff; letter-spacing: -0.3px; padding-bottom: 4px;">
+                                        <img src="data:image/png;base64,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
+                                        " alt="RentUp" width="32" height="32" style="display: inline-block; vertical-align: middle; margin-right: 8px;">
+                                        <span style="vertical-align: middle;">RentUp</span>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td align="center" style="font-family: Manrope, Arial, sans-serif; font-size: 12px; font-weight: 500; color: #B3C8E0; letter-spacing: 2px; text-transform: uppercase; padding-top: 4px;">
+                                        Contrato de Arrendamiento
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
                     </tr>
+
+                    <!-- HERO -->
                     <tr>
-                        <td style="padding: 8px 0; font-size: 13px; color: #6b7280; border-top: 1px solid #e5e7eb;">Fecha de inicio</td>
-                        <td style="padding: 8px 0; font-size: 14px; color: #1f2937; font-weight: 600; border-top: 1px solid #e5e7eb;">{{startDate}}</td>
+                        <td style="padding: 48px 32px 32px; text-align: center; background: linear-gradient(180deg, #f2f6fa 0%, #ffffff 100%);">
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                                <tr>
+                                    <td align="center" style="padding-bottom: 20px;">
+                                        <table cellpadding="0" cellspacing="0" border="0" style="width: 80px; height: 80px; border-radius: 50%; background-color: #ffffff; box-shadow: 0 4px 16px rgba(46,90,136,0.10);">
+                                            <tr>
+                                                <td align="center" style="font-size: 36px; line-height: 80px;">🤝</td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td align="center" style="font-family: Manrope, Arial, sans-serif; font-size: 30px; font-weight: 800; color: #2E5A88; letter-spacing: -0.5px; padding-bottom: 10px;">
+                                        &iexcl;Contrato concretado!
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td align="center" style="font-family: Inter, Arial, sans-serif; font-size: 16px; color: #536379; line-height: 1.7; max-width: 440px; padding: 0 8px;">
+                                        Felicidades <strong style="color: #1c2d44;">{{nombre}} {{apellido}}</strong>, has llegado a un acuerdo exitoso.
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
                     </tr>
+
+                    <!-- CONTRACT CARD -->
                     <tr>
-                        <td style="padding: 8px 0; font-size: 13px; color: #6b7280; border-top: 1px solid #e5e7eb;">Fecha de fin</td>
-                        <td style="padding: 8px 0; font-size: 14px; color: #1f2937; font-weight: 600; border-top: 1px solid #e5e7eb;">{{endDate}}</td>
+                        <td style="padding: 8px 32px 24px;">
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #F7F9FB; border: 1px solid #E5DFD2; border-radius: 16px;">
+                                <tr>
+                                    <td style="padding: 28px;">
+                                        <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                                            <tr>
+                                                <td style="padding-bottom: 16px;">
+                                                    <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                                                        <tr>
+                                                            <td style="font-family: 'Public Sans', Inter, Arial, sans-serif; font-size: 11px; font-weight: 700; color: #6b7280; letter-spacing: 2px; text-transform: uppercase;">
+                                                                Resumen del Contrato
+                                                            </td>
+                                                        </tr>
+                                                    </table>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding: 12px 0; border-bottom: 1px solid #E5DFD2;">
+                                                    <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                                                        <tr>
+                                                            <td style="font-family: Inter, Arial, sans-serif; font-size: 13px; color: #777587; width: 50%;">Vivienda</td>
+                                                            <td style="font-family: Manrope, Arial, sans-serif; font-size: 15px; font-weight: 700; color: #1c2d44; text-align: right;">{{aptName}}</td>
+                                                        </tr>
+                                                    </table>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding: 12px 0; border-bottom: 1px solid #E5DFD2;">
+                                                    <table width="100%" cellpadding="0" cellspacing="0" border="0" class="responsive-grid">
+                                                        <tr>
+                                                            <td style="font-family: Inter, Arial, sans-serif; font-size: 13px; color: #777587; width: 50%;">
+                                                                <div style="font-size: 11px; color: #9ca3af; margin-bottom: 2px;">Fecha de inicio</div>
+                                                                <span style="font-family: Inter, Arial, sans-serif; font-size: 14px; font-weight: 600; color: #1c2d44;">{{startDate}}</span>
+                                                            </td>
+                                                            <td style="font-family: Inter, Arial, sans-serif; font-size: 13px; color: #777587; width: 50%; text-align: right;" class="right-cell">
+                                                                <div style="font-size: 11px; color: #9ca3af; margin-bottom: 2px;">Fecha de fin</div>
+                                                                <span style="font-family: Inter, Arial, sans-serif; font-size: 14px; font-weight: 600; color: #1c2d44;">{{endDate}}</span>
+                                                            </td>
+                                                        </tr>
+                                                    </table>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding: 12px 0;">
+                                                    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: rgba(46,90,136,0.04); border-radius: 8px;">
+                                                        <tr>
+                                                            <td style="padding: 16px 20px;">
+                                                                <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                                                                    <tr>
+                                                                        <td style="font-family: Manrope, Arial, sans-serif; font-size: 14px; font-weight: 700; color: #2E5A88;">Renta mensual</td>
+                                                                        <td style="font-family: Manrope, Arial, sans-serif; font-size: 26px; font-weight: 800; color: #2E5A88; text-align: right;">${{rent}}</td>
+                                                                    </tr>
+                                                                </table>
+                                                            </td>
+                                                        </tr>
+                                                    </table>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
                     </tr>
+
+                    <!-- CTA -->
                     <tr>
-                        <td style="padding: 8px 0; font-size: 13px; color: #6b7280; border-top: 1px solid #e5e7eb;">Renta mensual</td>
-                        <td style="padding: 8px 0; font-size: 14px; color: #1f2937; font-weight: 600; border-top: 1px solid #e5e7eb;">${{rent}}</td>
+                        <td style="padding: 0 32px 24px;">
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                                <tr>
+                                    <td align="center">
+                                        <table cellpadding="0" cellspacing="0" border="0" style="border-radius: 50px; background: linear-gradient(135deg, #3f2acc, #5849e4); box-shadow: 0 8px 24px rgba(63,42,204,0.25);">
+                                            <tr>
+                                                <td align="center" style="padding: 16px 48px;">
+                                                    <a href="{{contratoUrl}}" style="font-family: Manrope, Arial, sans-serif; font-size: 15px; font-weight: 700; color: #ffffff; text-decoration: none; line-height: 1; letter-spacing: 0.3px;">Ver contrato completo</a>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
                     </tr>
+
+                    <!-- INFO NOTE -->
+                    <tr>
+                        <td style="padding: 0 32px 40px;">
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.15); border-radius: 12px;">
+                                <tr>
+                                    <td style="padding: 16px 20px;">
+                                        <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                                            <tr>
+                                                <td width="28" valign="top" style="font-size: 18px; line-height: 1; color: #F59E0B; padding-right: 12px;">&#x2139;</td>
+                                                <td style="font-family: Inter, Arial, sans-serif; font-size: 13px; color: #6b7280; line-height: 1.7;">
+                                                    Por favor, aseg&uacute;rate de cumplir con todas las condiciones acordadas. Si tienes preguntas sobre tu contrato, puedes contactarnos en cualquier momento.
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+
+                    <!-- FOOTER -->
+                    <tr>
+                        <td style="padding: 0 32px 32px;">
+                            {{> _footer}}
+                        </td>
+                    </tr>
+
                 </table>
-            </div>
-
-            <p style="margin: 0 0 4px 0; font-size: 14px; color: #4b5563; line-height: 1.6;">Por favor, asegúrate de cumplir con todas las condiciones acordadas. Si tienes preguntas sobre tu contrato, puedes contactarnos en cualquier momento.</p>
-
-            {{> _footer}}
-        </div>
-    </div>
-</div>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

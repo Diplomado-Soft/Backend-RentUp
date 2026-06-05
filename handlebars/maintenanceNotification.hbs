@@ -1,36 +1,45 @@
-<div style="background-color: #f7f9fb; padding: 40px 20px; font-family: Inter, Arial, sans-serif;">
-    <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
-        <div style="background-color: #e67e22; padding: 24px 32px; text-align: center;">
-            <h1 style="margin: 0; font-family: Manrope, Arial, sans-serif; font-size: 22px; font-weight: 700; color: #ffffff; letter-spacing: -0.3px;">RentUp</h1>
-        </div>
-        <div style="padding: 32px;">
-            <h2 style="margin: 0 0 8px 0; font-family: Manrope, Arial, sans-serif; font-size: 24px; font-weight: 700; color: #e67e22;">Nuevo reporte de mantenimiento</h2>
-            <p style="margin: 0 0 20px 0; font-size: 15px; color: #4b5563; line-height: 1.6;">Hola {{nombre}} {{apellido}}, un inquilino ha reportado un problema en una de tus propiedades.</p>
-
-            <div style="background-color: #fffbeb; border: 1px solid #fde68a; border-radius: 10px; padding: 20px; margin: 0 0 20px 0;">
-                <table style="width: 100%; border-collapse: collapse;">
-                    <tr>
-                        <td style="padding: 6px 0; font-size: 13px; color: #6b7280; width: 30%;">Título</td>
-                        <td style="padding: 6px 0; font-size: 14px; color: #1f2937; font-weight: 600;">{{report.title}}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 6px 0; font-size: 13px; color: #6b7280; border-top: 1px solid #fde68a;">Descripción</td>
-                        <td style="padding: 6px 0; font-size: 14px; color: #1f2937; border-top: 1px solid #fde68a;">{{#if report.description}}{{report.description}}{{else}}Sin descripción{{/if}}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 6px 0; font-size: 13px; color: #6b7280; border-top: 1px solid #fde68a;">Prioridad</td>
-                        <td style="padding: 6px 0; font-size: 14px; color: #1f2937; border-top: 1px solid #fde68a;">{{priorityLabel report.priority}}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 6px 0; font-size: 13px; color: #6b7280; border-top: 1px solid #fde68a;">Fecha</td>
-                        <td style="padding: 6px 0; font-size: 14px; color: #1f2937; border-top: 1px solid #fde68a;">{{formatDate report.created_at}}</td>
-                    </tr>
-                </table>
-            </div>
-
-            <p style="margin: 0 0 4px 0; font-size: 14px; color: #4b5563; line-height: 1.6;">Ingresa a tu panel para gestionar este reporte.</p>
-
-            {{> _footer}}
-        </div>
-    </div>
-</div>
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><meta name="color-scheme" content="light"><meta name="supported-color-schemes" content="light"><title>Reporte de Mantenimiento - RentUp</title></head>
+<body style="margin:0;padding:0;background-color:#f3f4f6;font-family:Inter,Arial,sans-serif;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f3f4f6;"><tr><td align="center" style="padding:24px 16px;">
+<table role="presentation" width="100%" style="max-width:600px;" cellpadding="0" cellspacing="0" border="0" class="container">
+<tr><td bgcolor="#F59E0B" style="padding:20px 32px;">
+<table width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+<td style="font-family:Inter,Arial,sans-serif;font-size:20px;font-weight:700;color:#ffffff;"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMgAAADICAYAAACtWK6eAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAgAElEQVR4nOx9d3xd1ZXumuS9ySSZZCbzJpOE6m7JVrfBlBBCkklCcbfVZRlMgNBx7+q9uAMBbIOxDbbBvfeKu3EHF2xZtizpttPLrd/7rX2Rh2HS3niSK17OH+t3j66ke/dZZ3979bXI0FVyyOGBswfU38sDhzEOOJw9oP9hHjjMcQDi7AHdAYizCZyDgP47PHA2jrNxnD2gOwBxNoFzEJAjQZxN4BwE+v8sDxyGOqBy9oDuAMTZBM5BQI4EcTaBcxDojorlbALnIKC/Fg+czeZsNmcP6A5AnE3gHATkSBBnEzgHge6oWM4mcA4CcmwQZxM4B4Eeex7EfAEOOTww2jEPYr4AhxweGO2YBzFfgEMOD4x2zIOYL8AhhwdGO+ZBzBfgkMMDox3zIOYLcMjhgdGOeRDzBTjk8MBoxzyI+QIccnhgtGMexHwBDjk8MNoxD2K+AIccHhjtmAcxX4BDDg+MdsyDmC/AIYcHRjvmQcwX4JDDA6Md8yDmC3DI4YHRjnkQ8wU45PDAaMc8iPkCHHJ4YLRjHsR8AQ45PDDaMQ9ivgCHHB4Y7ZgHMV+AQw4PjHbMg5gvwCGHB0Y75kHMF+CQwwOjHfMg5gtwyOGB0Y55EPMFOOTwwGjHPIj5AhxyeGC0Yx7EfAEOOTww2jEPYr4AhxweGO2YBzFfgEMOD4x2zIOYL8AhhwdGO+ZBzBfgkMMDox3zIOYLcMjhgdGOeRDzBTjk8MBoxzyI+QIccnhgtGMexHwBDjk8MNoxD2K+AIccHhjtmAcxX4BDDg+MdsyDmC/Aof/gga4pghyeqO2GBzFfgEMOD4x2zIOYL+Bvnf6YxHCkiRrz5xPzBfyt0xfVKtPQBH35fYfUmPHAYX6MN6CmygIIDAzL1AXxNb/Hv4v1+oy/cYr5Ar7qFDANUlWZJF0mXVfJUhSyJZkMTSfFMshUr0MPyOTVNPLZMlk+iWyzlWxdIa+iElweisBFDVdbcP5jL1SXQXogQF5TI7/lplbVSwFdJ1vzkmkb5HOrBM1DQa0BPl6DESZJ8ZBpKWSqGgU1hYK6izTVS4aBmPPH+IpTzBfw1acG2LqbbFUnTbVINQ3SAhrppkK6rFBYBnl8rWSFmoBWkMvwkmKwlAhQSJbJ9Efo0vlWTMlfhKdTVmJa/ho0n7oEhEFul0R2KEyS9wo0n4ssy0+mbZFtg+wASIdO/N2WopGhqGSYPpJUN1l2mBTZjIIk5vxRv9IU8wV81UlTQX4TFNYtikgqwWMQ3CaFfRpFdI2CrjA1h68j5JdJkWRSZJta0ATFZ5GuuEiFQat/dwovJC9H0b0b8FLi+6jNWY/mTxoRCOskSzpJspsQMCno99J1rRVvrDmIZwuXYOmWowgHNDK9PoJpkM93HWowQJIF0nQ/BbTWmPPH+IpTzBfwVSdF95Lh8ZLp8pGhSyRDopZIK3n0ZgqoMgV8NslhN13e2Ypt95/Cpj5HcbzmEhAMkU+XKQwffby0AS+nLMCE+zdjzEPvYkTCOygYcgDNjZeAiEEeLxvsEqmqi1bsPI7OA15Ah34j0btvGeYu2YEQQLbSLNQ7zQyTW9dI1bwEQ485f4yvOMV8AV95CnrJ8LvIMKKqjukLkuoJkCwZpNk6eU2FgopMGwedxIFvNuDQv17F1n9pwslxZ2HBT5LVQmHZRUumXERO8lJMfHQNSn/2EZ5LWoHJg7fg6idXgQjI7W0Qr+Wv7cMd/Sci9be1SMmsRdKQIsxctgOsisGy...</span></td>
+<td align="right" style="font-family:Inter,Arial,sans-serif;font-size:12px;color:#FDE68A;">Reporte de Mantenimiento</td>
+</tr></table>
+</td></tr>
+<tr><td style="padding:40px 32px 24px;">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr><td align="center" style="padding-bottom:16px;">
+<table cellpadding="0" cellspacing="0" border="0" style="width:80px;height:80px;border-radius:50%;background-color:#FFFBEB;"><tr><td align="center" style="font-size:36px;line-height:80px;">&#128295;</td></tr></table>
+</td></tr>
+<tr><td align="center" style="font-size:24px;font-weight:700;color:#D97706;padding-bottom:8px;">Nuevo reporte de mantenimiento</td></tr>
+<tr><td align="center" style="font-size:15px;color:#6B7280;line-height:1.6;">Hola {{nombre}}, un inquilino ha reportado un problema en una de tus propiedades.</td></tr>
+</table>
+</td></tr>
+<tr><td style="padding:8px 32px 24px;">
+<table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#FFFBEB;border:1px solid #FDE68A;border-radius:12px;"><tr><td style="padding:24px;">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr><td style="padding:8px 0;font-size:13px;color:#6B7280;width:30%;">T&iacute;tulo</td><td style="padding:8px 0;font-size:14px;font-weight:600;color:#1F2937;text-align:right;">{{report.title}}</td></tr>
+<tr><td style="padding:8px 0;font-size:13px;color:#6B7280;border-top:1px solid #FDE68A;">Descripci&oacute;n</td><td style="padding:8px 0;font-size:14px;color:#1F2937;text-align:right;border-top:1px solid #FDE68A;">{{#if report.description}}{{report.description}}{{else}}Sin descripci&oacute;n{{/if}}</td></tr>
+<tr><td style="padding:8px 0;font-size:13px;color:#6B7280;border-top:1px solid #FDE68A;">Prioridad</td><td style="padding:8px 0;text-align:right;border-top:1px solid #FDE68A;"><span style="display:inline-block;padding:4px 12px;border-radius:999px;font-size:12px;font-weight:600;{{#if (eq report.priority 'urgent')}}background-color:#FEF2F2;color:#DC2626;{{else if (eq report.priority 'high')}}background-color:#FFFBEB;color:#D97706;{{else if (eq report.priority 'medium')}}background-color:#FEFCE8;color:#CA8A04;{{else}}background-color:#F0FDF4;color:#16A34A;{{/if}}">{{priorityLabel report.priority}}</span></td></tr>
+<tr><td style="padding:8px 0;font-size:13px;color:#6B7280;border-top:1px solid #FDE68A;">Fecha</td><td style="padding:8px 0;font-size:14px;font-weight:600;color:#1F2937;text-align:right;border-top:1px solid #FDE68A;">{{report.created_at}}</td></tr>
+</table>
+</td></tr></table>
+</td></tr>
+<tr><td style="padding:0 32px 24px;"><p style="margin:0;font-size:14px;color:#6B7280;text-align:center;">Ingresa a tu panel para gestionar este reporte.</p></td></tr>
+<tr><td align="center" style="padding:8px 32px 40px;">
+<!--[if mso]>
+<v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="{{frontendUrl}}/dashboard" style="height:48px;v-text-anchor:middle;width:200px;" arcsize="50%" fillcolor="#3f2acc">
+<w:anchorlock/>
+<center style="color:#ffffff;font-family:Inter,Arial,sans-serif;font-size:14px;font-weight:600;">Gestionar reporte</center>
+</v:roundrect>
+<![endif]-->
+<!--[if !mso]><!-->
+<a href="{{frontendUrl}}/dashboard" style="display:inline-block;background:linear-gradient(135deg,#3f2acc,#5849e4);color:#ffffff;text-decoration:none;padding:14px 32px;border-radius:999px;font-size:14px;font-weight:600;box-shadow:0 4px 12px rgba(63,42,204,0.25);">Gestionar reporte</a>
+<!--<![endif]-->
+</td></tr>
+<tr><td style="padding:0 32px 32px;">{{> _footer}}</td></tr>
+</table></td></tr></table></body></html>
