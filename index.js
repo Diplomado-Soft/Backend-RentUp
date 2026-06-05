@@ -89,6 +89,9 @@ app.use((req, _, next) => {
     next();
 });
 
+// === Health Check (para Render) ===
+app.get('/health', (_, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
+
 // === Rutas ===
 const userRoutes = require('./routes/userRoutes');
 const apartmentRoutes = require('./routes/apartmentRoutes');
@@ -158,9 +161,9 @@ let server;
 
 // En desarrollo, usar HTTP simple para evitar problemas de certificados
 // En producción, usar HTTPS
-if (NODE_ENV === 'development') {
+if (NODE_ENV === 'development' || process.env.DISABLE_SSL === 'true') {
     server = http.createServer(app);
-    console.log('🟡 Usando HTTP en modo desarrollo');
+    console.log(`🟡 Usando HTTP (${NODE_ENV === 'development' ? 'modo desarrollo' : 'SSL deshabilitado'})`);
 } else {
     try {
         const privateKey = fs.readFileSync(path.join(__dirname, 'certs/key.pem'), 'utf8');
