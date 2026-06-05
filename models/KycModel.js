@@ -32,9 +32,19 @@ class KycModel {
 
     static async init() {
         await this.ensureTable();
+        try {
+            await db.execute(`
+                ALTER TABLE landlord_verification
+                ADD COLUMN IF NOT EXISTS id_document_hash VARCHAR(128) NULL AFTER id_document_key
+            `);
+        } catch (error) {
+            if (!error.message.includes('Duplicate column')) {
+                console.error('Error asegurando columna id_document_hash en landlord_verification:', error.message);
+            }
+        }
     }
 
-    static async createVerification({ userId, apartmentId, idDocumentUrl, idDocumentKey }) {
+    static async createVerification({ userId, apartmentId, idDocumentUrl, idDocumentKey, idDocumentHash }) {
         const connection = await db.getConnection();
         try {
             await connection.beginTransaction();
@@ -50,12 +60,13 @@ class KycModel {
                     `UPDATE landlord_verification
                      SET id_document_url = COALESCE(?, id_document_url),
                          id_document_key = COALESCE(?, id_document_key),
+                         id_document_hash = COALESCE(?, id_document_hash),
                          status = 'pending',
                          admin_notes = NULL,
                          reviewed_by = NULL,
                          reviewed_at = NULL
                      WHERE id = ?`,
-                    [idDocumentUrl, idDocumentKey, existing[0].id]
+                    [idDocumentUrl, idDocumentKey, idDocumentHash, existing[0].id]
                 );
                 await connection.commit();
                 return { id: existing[0].id, isUpdate: true };
@@ -63,9 +74,9 @@ class KycModel {
 
             const [result] = await connection.query(
                 `INSERT INTO landlord_verification
-                 (user_id, id_document_url, id_document_key, status)
-                 VALUES (?, ?, ?, 'pending')`,
-                [userId, idDocumentUrl, idDocumentKey]
+                 (user_id, id_document_url, id_document_key, id_document_hash, status)
+                 VALUES (?, ?, ?, ?, 'pending')`,
+                [userId, idDocumentUrl, idDocumentKey, idDocumentHash]
             );
 
             await connection.commit();

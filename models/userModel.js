@@ -2,6 +2,19 @@ const db = require('../config/db');
 const bcrypt = require('bcryptjs');
 
 class User {
+    static async init() {
+        try {
+            await db.execute(`
+                ALTER TABLE users
+                ADD COLUMN IF NOT EXISTS id_document_hash VARCHAR(128) NULL AFTER id_document_key
+            `);
+            console.log('✅ Columna id_document_hash asegurada en users');
+        } catch (error) {
+            if (!error.message.includes('Duplicate column')) {
+                console.error('Error asegurando columna id_document_hash:', error.message);
+            }
+        }
+    }
     static async getUserData(userId) {
         try {
             const [results] = await db.query(
@@ -137,11 +150,41 @@ class User {
         return true;
     }
 
-    static async updateCedula(userId, url, key) {
-        await db.execute(
-            `UPDATE users SET id_document_url = ?, id_document_key = ? WHERE user_id = ?`,
-            [url, key, userId]
-        );
+    static async updateCedula(userId, url, key, hash = null) {
+        if (hash && url && key) {
+            await db.execute(
+                `UPDATE users SET id_document_url = ?, id_document_key = ?, id_document_hash = ? WHERE user_id = ?`,
+                [url, key, hash, userId]
+            );
+        } else if (hash) {
+            await db.execute(
+                `UPDATE users SET id_document_hash = ? WHERE user_id = ?`,
+                [hash, userId]
+            );
+        } else {
+            await db.execute(
+                `UPDATE users SET id_document_url = ?, id_document_key = ? WHERE user_id = ?`,
+                [url, key, userId]
+            );
+        }
+    }
+
+    static async findByDocumentHash(hash) {
+        try {
+            const [results] = await db.query(
+                `SELECT users.user_id, users.user_name, users.user_lastname, users.user_email,
+                        users.id_document_hash, users.estadoVerificacion,
+                        user_rol.rol_id
+                FROM users
+                JOIN user_rol ON users.user_id = user_rol.user_id
+                WHERE users.id_document_hash = ? AND users.id_document_hash IS NOT NULL`,
+                [hash]
+            );
+            return results[0] || null;
+        } catch (error) {
+            console.error('Error en findByDocumentHash:', error);
+            return null;
+        }
     }
 }
 

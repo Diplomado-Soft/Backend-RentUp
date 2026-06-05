@@ -131,6 +131,17 @@ exports.signup = async (req, res) => {
         // Si es arrendador y subió cédula, procesarla
         if (dtoData.rolId === 2 && req.file) {
             try {
+                const crypto = require('crypto');
+                const fileHash = crypto.createHash('sha256').update(req.file.buffer).digest('hex');
+
+                const existingDoc = await User.findByDocumentHash(fileHash);
+                if (existingDoc) {
+                    console.warn(`⚠️ Intento de registro con cédula duplicada. Usuario existente: ${existingDoc.user_id}`);
+                    return res.status(409).json({
+                        error: 'Esta cédula ya está registrada en el sistema por otro usuario. No se puede usar el mismo documento de identidad para crear múltiples cuentas.'
+                    });
+                }
+
                 const uploadResult = await idriveService.uploadDocument(
                     req.file.buffer,
                     newUser.user_id,
@@ -138,7 +149,7 @@ exports.signup = async (req, res) => {
                     req.file.originalname,
                     req.file.mimetype
                 );
-                await User.updateCedula(newUser.user_id, uploadResult.signedUrl, uploadResult.key);
+                await User.updateCedula(newUser.user_id, uploadResult.signedUrl, uploadResult.key, fileHash);
                 console.log(`✅ Cédula subida para usuario ${newUser.user_id}`);
 
                 // Llamar al servicio de IA para verificar la cédula
@@ -146,7 +157,6 @@ exports.signup = async (req, res) => {
                 const aiResult = await aiVerificationService.analyzeIdDocument(uploadResult.signedUrl);
                 console.log(`🤖 Resultado de IA para usuario ${newUser.user_id}:`, aiResult);
 
-                // Si la IA aprueba con alta confianza, actualizar estado a aprobado
                 if (aiResult.esValido && aiResult.confianza > 0.9) {
                     await db.execute(
                         `UPDATE users SET estadoVerificacion = 'aprobado' WHERE user_id = ?`,
@@ -154,10 +164,26 @@ exports.signup = async (req, res) => {
                     );
                     console.log(`✅ Usuario ${newUser.user_id} aprobado automáticamente por IA (confianza: ${aiResult.confianza})`);
                 } else {
-                    console.log(`⏳ Usuario ${newUser.user_id} queda en pendiente (confianza: ${aiResult.confianza})`);
+                    await idriveService.deleteImage(uploadResult.key).catch(e =>
+                        console.error('Error limpiando archivo de IDrive:', e.message)
+                    );
+                    await User.deleteRolUser(newUser.user_id).catch(e =>
+                        console.error('Error eliminando rol de usuario:', e.message)
+                    );
+                    await User.deleteAccount(newUser.user_id).catch(e =>
+                        console.error('Error eliminando usuario:', e.message)
+                    );
+                    return res.status(400).json({
+                        error: aiResult.comentario || 'No se pudo validar su documento de identidad. Verifique que la imagen sea legible y vuelva a intentarlo.'
+                    });
                 }
             } catch (uploadErr) {
-                console.error('⚠️ Error subiendo cédula (no bloquea registro):', uploadErr.message);
+                console.error('❌ Error procesando cédula:', uploadErr.message);
+                await User.deleteRolUser(newUser.user_id).catch(e => {});
+                await User.deleteAccount(newUser.user_id).catch(e => {});
+                return res.status(400).json({
+                    error: 'Ocurrió un error al validar su documento de identidad. Verifique que la imagen sea legible y vuelva a intentarlo.'
+                });
             }
         }
 

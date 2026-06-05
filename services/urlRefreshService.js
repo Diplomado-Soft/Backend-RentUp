@@ -175,6 +175,77 @@ const refreshExpiredUrls = async () => {
             }
         }
 
+        // Renovar URLs de documentos KYC (landlord_verification)
+        const [kycDocs] = await connection.query(`
+            SELECT id, id_document_key, id_document_url, updated_at
+            FROM landlord_verification
+            WHERE id_document_key IS NOT NULL
+            AND id_document_url IS NOT NULL
+            AND updated_at < DATE_ADD(NOW(), INTERVAL 1 HOUR)
+        `);
+
+        if (kycDocs && kycDocs.length > 0) {
+            console.log(`🔄 Renovando ${kycDocs.length} URL(s) de documentos KYC...`);
+
+            for (const doc of kycDocs) {
+                try {
+                    const { signedUrl, expiresAt } = await idriveService.getSignedUrl(doc.id_document_key);
+
+                    await connection.query(`
+                        UPDATE landlord_verification
+                        SET id_document_url = ?,
+                            updated_at = NOW()
+                        WHERE id = ?
+                    `, [signedUrl, doc.id]);
+
+                    renovatedCount++;
+                    console.log(`✅ URL KYC renovada para verificación ${doc.id}`);
+                } catch (error) {
+                    errorCount++;
+                    console.error(`❌ Error renovando URL KYC para verificación ${doc.id}:`, error.message);
+                }
+            }
+        }
+
+        // Renovar URLs de documentos en users (cédulas almacenadas directamente)
+        const [userDocs] = await connection.query(`
+            SELECT user_id, id_document_key, id_document_url
+            FROM users
+            WHERE id_document_key IS NOT NULL
+            AND id_document_url IS NOT NULL
+        `);
+
+        if (userDocs && userDocs.length > 0) {
+            console.log(`🔄 Verificando ${userDocs.length} documento(s) de usuarios...`);
+
+            for (const doc of userDocs) {
+                try {
+                    const needsRenewal = await connection.query(`
+                        SELECT 1 FROM landlord_verification
+                        WHERE user_id = ? AND id_document_key = ?
+                        AND updated_at < DATE_ADD(NOW(), INTERVAL 1 HOUR)
+                        LIMIT 1
+                    `, [doc.user_id, doc.id_document_key]);
+
+                    if (needsRenewal[0] && needsRenewal[0].length > 0) {
+                        const { signedUrl, expiresAt } = await idriveService.getSignedUrl(doc.id_document_key);
+
+                        await connection.query(`
+                            UPDATE users
+                            SET id_document_url = ?
+                            WHERE user_id = ?
+                        `, [signedUrl, doc.user_id]);
+
+                        renovatedCount++;
+                        console.log(`✅ URL de cédula renovada para usuario ${doc.user_id}`);
+                    }
+                } catch (error) {
+                    errorCount++;
+                    console.error(`❌ Error renovando URL de cédula para usuario ${doc.user_id}:`, error.message);
+                }
+            }
+        }
+
         console.log(`📊 Resumen: ${renovatedCount} renovadas, ${errorCount} errores`);
     } catch (error) {
         console.error('❌ Error en refreshExpiredUrls:', error.message);
